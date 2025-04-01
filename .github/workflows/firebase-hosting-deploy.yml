@@ -1,0 +1,26 @@
+name: Deploy to Firebase Hosting
+on:
+  push:
+    branches:
+      - main
+      - temp-branch
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Dependencies
+        run: |
+          cd Firebase/functions
+          npm ci
+          
+      - name: Deploy to Firebase
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_PLAYLIST_GPT }}'
+          channelId: live
+          projectId: playlist-gpt
+          entryPoint: './Firebase' 
