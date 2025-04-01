@@ -33,6 +33,21 @@
   ],
   "ignorePaths": [
     "node_modules/**",
-    ".git/**"
-  ]
+    ".git/**",
+    "dist/**",
+    "build/**",
+    "*.min.js",
+    "**/*.svg",
+    "package-lock.json"
+  ],
+  "ignoreRegExpList": [
+    "\\(.*\\)", // Anything in parentheses
+    "\\b[A-Z]{2,}\\b", // Uppercase acronyms
+    "\\b\\w{1,3}\\b", // Very short words
+    "[0-9]+"  // Numbers
+  ],
+  "minWordLength": 4,
+  "allowCompoundWords": true,
+  "useGitignore": true,
+  "flagWords": []
 } 
