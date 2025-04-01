@@ -1,0 +1,9 @@
+node_modules/
+
+# Config files with sensitive information
+.config.js
+
+# Firebase service account files
+**/playlist-gpt*.json
+**/serviceAccount*.json
+**/*-firebase-adminsdk-*.json

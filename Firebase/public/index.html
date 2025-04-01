@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>Perfect Playlist - Create Spotify Playlists with AI</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.ico">
+  
+  <!-- Firebase SDKs -->
+  <script defer src="/__/firebase/9.22.0/firebase-app-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-auth-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-database-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-firestore-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-functions-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-messaging-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-storage-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-analytics-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-remote-config-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-performance-compat.js"></script>
+  <script defer src="/__/firebase/init.js"></script>
+  
+  <!-- Tailwind CSS with reliable CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  
+  <!-- Custom Styles - Using absolute paths to ensure they're found -->
+  <link rel="stylesheet" href="/styles/globals.css">
+  <link rel="stylesheet" href="/styles/app.css">
+  <link rel="stylesheet" href="/styles/tw-animate-css.css">
+  
+  <!-- Add html2canvas library for screenshot functionality -->
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  
+  <!-- Embed environment configuration directly -->
+  <script>
+    // Environment configuration for Perfect Playlist app
+    window.ENV = {
+      // Spotify Configuration
+      SPOTIFY_CLIENT_ID: "49ee4717a4fe432db9a5995860ad74e3",
+      
+      // Firebase Configuration
+      FIREBASE_API_KEY: "AIzaSyAUIVNIBsx2ogTnEuToKe_VWgOBvq7yfp4",
+      FIREBASE_AUTH_DOMAIN: "playlist-gpt.firebaseapp.com",
+      FIREBASE_DATABASE_URL: "https://playlist-gpt-default-rtdb.firebaseio.com",
+      FIREBASE_PROJECT_ID: "playlist-gpt",
+      FIREBASE_STORAGE_BUCKET: "playlist-gpt.appspot.com",
+      FIREBASE_MESSAGING_SENDER_ID: "243999705915",
+      FIREBASE_APP_ID: "1:243999705915:web:7d6be826f67b85ee98051e",
+      FIREBASE_MEASUREMENT_ID: "G-39TP6XSSRH"
+    };
+  </script>
+  
+  <!-- Basic styles for elements -->
+  <style>
+    /* global.css */
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', Arial, sans-serif;
+      overflow-x: hidden;
+    }
+    
+    * {
+      box-sizing: border-box;
+    }
+    
+    h1, h2, h3, h4, h5, h6, p {
+      margin-top: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-app">
+    <div class="flex flex-col items-center justify-center h-full px-4 py-4">
+      <!-- User Profile (Hidden initially) -->
+      <div id="profile-info" class="absolute top-4 right-4 flex items-center gap-3" style="display: none;">
+        <div class="text-right">
+          <div class="text-sm text-gray-300">Signed into Spotify as</div>
+          <div id="display-name" class="text-white font-medium"></div>
+        </div>
+        <div id="avatar" class="avatar"></div>
+      </div>
+      
+      <!-- Main Content -->
+      <div class="flex flex-col items-center text-center w-full">
+        <div class="logo">
+          <img src="logo-transparent.svg" alt="Perfect Playlist Logo">
+        </div>
+        <h1 class="text-5xl font-bold">Perfect Playlist</h1>
+        <p class="text-xl">Create any playlist in your Spotify</p>
+        
+        <!-- Spotify Auth Button -->
+        <div id="connect-spotify" class="w-full max-w-xs mt-2">
+          <button id="spotify-connect-btn" class="btn w-full" onclick="window.login()">Connect Spotify</button>
+        </div>
+        
+        <!-- Side by side layout container -->
+        <div class="app-container">
+          <!-- Input Section -->
+          <div id="create-section" class="input-section" style="display: none;">
+            <form id="playlist-form" class="w-full">
+              <div class="w-full">
+                <!-- Primary textarea -->
+                <textarea 
+                  id="playlist-description-input" 
+                  class="playlist-textarea w-full"
+                  placeholder="E.g. angsty songs about break ups"
+                ></textarea>
+              </div>
+              <div class="text-center mt-3">
+                <button id="create-playlist-button" type="submit" class="btn w-full max-w-xs">Create Playlist</button>
+              </div>
+            </form>
+            
+            <!-- Loading Indicator -->
+            <div id="loading" class="w-full text-center mt-4" style="display: none;">
+              <div class="inline-flex items-center justify-center">
+                <div class="spinner mr-3"></div>
+                <div>Generating playlist... This could take up to 2 min.</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Output Section -->
+          <div id="playlist-info" class="output-section w-full" style="display: none;">
+            <div id="playlist-viewer" class="playlist-viewer w-full">
+              <!-- Spotify embed will go here -->
+              <p class="playlist-coming">Your playlist will appear here</p>
+            </div>
+            <div id="playlist-buttons" class="playlist-buttons unauthenticated mt-3 flex flex-wrap justify-center gap-3 w-full">
+              <button id="delete-playlist" class="btn btn-unfolllow">Unfollow Playlist</button>
+              <button id="open-in-spotify" class="btn btn-spotify">Open in Spotify</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Debug Section -->
+  <section class="debug-mode" style="display: none;">
+    <div class="flex justify-between items-center">
+      <h4 class="text-white font-medium">Debug Info</h4>
+      <button id="copy-logs" class="btn py-1 px-3 text-sm">Copy Debug Logs</button>
+    </div>
+    <div id="logs" class="log-block"></div>
+  </section>
+  
+  <!-- Debug Text -->
+  <div id="debug-text" style="display: none;"></div>
+  
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script type="module" src="index.js"></script>
+</body>
+</html>

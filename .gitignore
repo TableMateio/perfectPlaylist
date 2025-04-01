@@ -1,0 +1,57 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+.yarn/
+.pnp/
+.pnp.js
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.js
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Firebase service account files
+**/playlist-gpt*.json
+**/serviceAccount*.json
+**/*-firebase-adminsdk-*.json
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+firebase-debug.log*
+firebase-debug.*.log*
+
+# Firebase cache
+.firebase/
+.firebaserc
+
+# Local configuration files
+database.rules.json
+firestore.rules
+firestore.indexes.json
+storage.rules
+
+# API key-related files should never be committed
+# If you need to include files with API keys, please use environment variables instead
+# **/index.js  # Uncommenting this would ignore all index.js files 
+**/Firebase/functions/.config.js
+
+# API key-related files should never be committed
+# If you need to include files with API keys, please use environment variables instead
+# **/index.js  # Uncommenting this would ignore all index.js files 

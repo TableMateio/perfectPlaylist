@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Input Page</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: white;
+    }
+    
+    textarea {
+      width: 100%;
+      height: 180px;
+      padding: 10px;
+      border: none;
+      outline: none;
+      resize: none;
+      font-size: 16px;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+    
+    .button {
+      background-color: #1DB954;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <textarea id="alternative-input" placeholder="Enter your playlist description here..."></textarea>
+  <button class="button" onclick="sendToParent()">Use This Text</button>
+  
+  <script>
+    function sendToParent() {
+      const text = document.getElementById('alternative-input').value;
+      if (text) {
+        // Send message to parent window
+        window.parent.postMessage({
+          type: 'alternative-input',
+          text: text
+        }, '*');
+      }
+    }
+  </script>
+</body>
+</html> 

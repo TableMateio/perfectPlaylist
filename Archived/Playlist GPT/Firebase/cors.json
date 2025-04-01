@@ -1,0 +1,7 @@
+[
+    {
+        "origin": ["https://gptplaylist.webflow.io", "https://perfectplaylist.ai", "https://www.perfectplaylist.ai"],
+        "method": ["GET"],
+        "maxAgeSeconds": 3600
+    }
+]

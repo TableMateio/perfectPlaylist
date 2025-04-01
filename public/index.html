@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Perfect Playlist - Create Spotify Playlists with AI</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.ico">
+  
+  <!-- Firebase SDKs -->
+  <script defer src="/__/firebase/9.22.0/firebase-app-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-auth-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-database-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-firestore-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-functions-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-messaging-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-storage-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-analytics-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-remote-config-compat.js"></script>
+  <script defer src="/__/firebase/9.22.0/firebase-performance-compat.js"></script>
+  <script defer src="/__/firebase/init.js?useEmulator=true"></script>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="/styles/globals.css">
+  <link rel="stylesheet" href="/styles/app.css">
+  
+  <style>
+    :root {
+      --background: 240 10% 3.9%;
+      --foreground: 0 0% 98%;
+      --card: 240 10% 3.9%;
+      --card-foreground: 0 0% 98%;
+      --popover: 240 10% 3.9%;
+      --popover-foreground: 0 0% 98%;
+      --primary: 142.1 70.6% 45.3%;
+      --primary-foreground: 144.9 80.4% 10%;
+      --secondary: 240 3.7% 15.9%;
+      --secondary-foreground: 0 0% 98%;
+      --muted: 240 3.7% 15.9%;
+      --muted-foreground: 240 5% 64.9%;
+      --accent: 240 3.7% 15.9%;
+      --accent-foreground: 0 0% 98%;
+      --destructive: 0 62.8% 30.6%;
+      --destructive-foreground: 0 0% 98%;
+      --border: 240 3.7% 15.9%;
+      --input: 240 3.7% 15.9%;
+      --ring: 142.4 71.8% 29.2%;
+      --radius: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-app">
+    <div class="flex flex-col items-center justify-center h-full px-4">
+      <!-- User Profile (Hidden initially) -->
+      <div id="profile-info" class="absolute top-4 right-4 flex items-center gap-3" style="display: none;">
+        <div class="text-right">
+          <div class="text-sm text-gray-300">Signed into Spotify as</div>
+          <div id="display-name" class="text-white font-medium"></div>
+        </div>
+        <div id="avatar" class="avatar"></div>
+      </div>
+      
+      <!-- Main Content -->
+      <div class="flex flex-col items-center text-center w-full" style="position: relative; z-index: 100;">
+        <div class="logo">
+          <img src="logo-transparent.svg" alt="Perfect Playlist Logo">
+        </div>
+        <h1 class="text-5xl font-bold mb-4">Perfect Playlist</h1>
+        <p class="text-xl mb-6">Create any playlist in your Spotify</p>
+        
+        <!-- Spotify Auth Button (Now in the center) -->
+        <div id="connect-spotify">
+          <button id="spotify-connect-btn" class="btn" onclick="window.login()">Connect Spotify</button>
+        </div>
+        
+        <!-- Form Section - With absolute positioning to overcome any potential layout issues -->
+        <div id="create-section" style="width: 700px; max-width: 100%; margin: 0 auto; display: none; position: relative; z-index: 9000;">
+          <form id="playlist-form" style="position: relative; z-index: 9000;">
+            <div style="padding: 20px 0; position: relative;">
+              <!-- Primary textarea -->
+              <textarea 
+                id="playlist-description-input" 
+                style="width: 100%; min-height: 200px; padding: 16px; border-radius: 8px; border: none; background: white; color: black; font-size: 16px; resize: vertical; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); box-sizing: border-box; font-family: 'Inter', sans-serif; pointer-events: auto !important; position: relative; z-index: 9500; opacity: 1;"
+                placeholder="E.g. angsty songs about break ups"
+                onclick="console.log('Textarea clicked!'); this.focus();"
+                onfocus="console.log('Textarea focused via onfocus attribute');"
+              ></textarea>
+            </div>
+            <div style="text-align: center; margin-top: 24px; position: relative; z-index: 100;">
+              <button id="create-playlist-button" type="submit" class="btn" style="position: relative; z-index: 100; pointer-events: auto;">Create Playlist</button>
+            </div>
+          </form>
+          
+          <!-- Loading Indicator -->
+          <div id="loading" style="display: none; margin-top: 20px; text-align: center; position: relative; z-index: 100;">
+            <div style="display: inline-flex; align-items: center; position: relative; z-index: 100;">
+              <div class="spinner" style="margin-right: 12px;"></div>
+              <div>Generating playlist... This could take up to 2 min.</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Playlist Result (Hidden initially) -->
+        <div id="playlist-info" style="width: 700px; max-width: 100%; margin: 20px auto 0; display: none; position: relative; z-index: 100;">
+          <div id="playlist-viewer" class="playlist-viewer" style="position: relative; z-index: 100; pointer-events: auto;">
+            <!-- Spotify embed will go here -->
+          </div>
+          <div class="playlist-buttons" style="position: relative; z-index: 100; pointer-events: auto;">
+            <button id="delete-playlist" class="btn bg-red-600 hover:bg-red-700" style="position: relative; z-index: 100; pointer-events: auto;">Unfollow Playlist</button>
+            <button id="open-in-spotify" class="btn" style="position: relative; z-index: 100; pointer-events: auto;">Open in Spotify</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Debug Section -->
+  <section class="debug-mode" style="display: none;">
+    <div class="flex justify-between items-center">
+      <h4 class="text-white font-medium">Debug Info</h4>
+      <button id="copy-logs" class="btn py-1 px-3 text-sm">Copy Debug Logs</button>
+    </div>
+    <div id="logs" class="log-block"></div>
+  </section>
+  
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="https://js.stripe.com/v3/"></script>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script type="module" src="index.js"></script>
+</body>
+</html> 
