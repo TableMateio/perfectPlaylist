@@ -1,0 +1,38 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "OPENAI",
+    "openai",
+    "firestore",
+    "webflow",
+    "gptplaylist",
+    "perfectplaylist",
+    "corsMiddleware",
+    "spotify",
+    "davinci",
+    "rgba",
+    "RTDB",
+    "Gaxios",
+    "gaxios",
+    "codebase",
+    "biome",
+    "eslint",
+    "maxAge",
+    "maxAgeSeconds",
+    "biomejs",
+    "callbackUri",
+    "spotifyData",
+    "spotifyClientId",
+    "spotifyClientSecret",
+    "accessToken",
+    "refreshToken",
+    "basicAuth",
+    "userid",
+    "firebase"
+  ],
+  "ignorePaths": [
+    "node_modules/**",
+    ".git/**"
+  ]
+} 
