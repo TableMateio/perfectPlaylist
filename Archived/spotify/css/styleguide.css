@@ -1,0 +1,11 @@
+:root { 
+  --black: #000000;
+  --white: #ffffff;
+ 
+  --font-size-l: 64px;
+  --font-size-m: 38px;
+  --font-size-s: 32px;
+  --font-size-xs: 24px;
+ 
+  --font-family-inter: "Inter", Helvetica;
+}

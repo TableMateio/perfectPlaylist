@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Playlist</title>
+    <!-- <link rel="stylesheet" href="src/style.css"> -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script type="module" src="/src/script.js"></script>
+    <link rel="stylesheet" type="text/css" href="css/page.css" />
+    <link rel="stylesheet" type="text/css" href="css/styleguide.css" />
+    <link rel="stylesheet" type="text/css" href="css/globals.css" />
+  </head>
+  <body>
+    <div class="container-center-horizontal">
+      <div class="page screen">
+        <div class="overlap-group3">
+          <div class="flex-row">
+            <div class="overlap-group1">
+              <div class="overlap-group">
+                <div class="background"></div>
+                <img class="logo" src="img/logo@2x.png" alt="Logo" />
+              </div>
+              <div class="chat-gpt"><img class="logo-1" src="img/logo-1@2x.png" alt="Logo" /></div>
+            </div>
+            <div class="user-info">
+              <div id="avatar" class="avatar"></div>
+              <p class="signed-into-spotify-as-scott-bergman">Signed into Spotify as <br />Scott Bergman</p>
+              <div class="user-info">
+                <ul id="info">
+                  <li>User ID: <span id="id"></span></li>
+                  <li>Email: <span id="email"></span></li>
+                  <li>Spotify URI: <a id="uri" href="#"></a></li>
+                  <li>Link: <a id="url" href="#"></a></li>
+                  <li>Profile Image: <span id="imgUrl"></span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="overlap-group5">
+            <p class="instructions">
+              <br />Describe the bands to include/exclude, similar artists, number of songs, playlist duration and
+              general vibe. Get weird, get specific. We’ll use ChatGPT to create a new playlist for you in Spotify.
+            </p>
+            <h1 class="welcome">Create Playlists in Spotify using ChatGPT</h1>
+          </div>
+          <div class="overlap-group4">
+            <div
+  contenteditable="true"
+  name="playlistDescription"
+  id="playlistDescription"
+  class="placeholder"
+  data-placeholder="50 songs from lesser known artists like Bob Dylan and John Mayer but more upbeat for a party"
+></div>
+
+          </div>
+          <button id="createPlaylistBtn" class="overlap-group2">Create playlist</button>
+        </div>
+      </div>
+    </div> 
+  </body>
+</html>
