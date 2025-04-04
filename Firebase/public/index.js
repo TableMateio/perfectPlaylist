@@ -190,95 +190,91 @@ async function setImageBackground() {
       throw new Error('No background images available');
     }
     
-    // Set up initial image 
-    let currentIndex = Math.floor(Math.random() * backgroundImages.length);
-    let nextIndex = (currentIndex + 1) % backgroundImages.length;
+    // Create three image elements for continuous crossfading
+    const imageElements = [];
+    const positions = [0, 1, 2]; // Tracking positions in rotation
+    let activeIndex = 0; // Currently visible image (fully opaque)
+    let currentImageIndex = Math.floor(Math.random() * backgroundImages.length);
     
-    // Create main image element
-    const mainImage = document.createElement('div');
-    mainImage.id = 'main-background-image';
-    mainImage.style.position = 'absolute';
-    mainImage.style.top = '0';
-    mainImage.style.left = '0';
-    mainImage.style.width = '100%';
-    mainImage.style.height = '100%';
-    mainImage.style.backgroundImage = `url('${backgroundImages[currentIndex]}')`;
-    mainImage.style.backgroundSize = 'cover';
-    mainImage.style.backgroundPosition = 'center';
-    mainImage.style.zIndex = '1';
-    mainImage.style.opacity = '1';
-    mainImage.style.transition = 'opacity 3s ease-in-out';
+    // Create three image elements (only one visible initially)
+    for (let i = 0; i < 3; i++) {
+      const imgIndex = (currentImageIndex + i) % backgroundImages.length;
+      
+      const imgElement = document.createElement('div');
+      imgElement.className = 'background-image';
+      imgElement.id = `background-image-${i}`;
+      imgElement.style.position = 'absolute';
+      imgElement.style.top = '0';
+      imgElement.style.left = '0';
+      imgElement.style.width = '100%';
+      imgElement.style.height = '100%';
+      imgElement.style.backgroundImage = `url('${backgroundImages[imgIndex]}')`;
+      imgElement.style.backgroundSize = 'cover';
+      imgElement.style.backgroundPosition = 'center';
+      imgElement.style.opacity = i === 0 ? '1' : '0';
+      imgElement.style.transition = 'opacity 10s linear';
+      imgElement.style.zIndex = i === 0 ? '2' : '1';
+      
+      // Store the current image index
+      imgElement.dataset.imageIndex = imgIndex.toString();
+      
+      // Add to container and tracking array
+      container.appendChild(imgElement);
+      imageElements.push(imgElement);
+    }
     
-    // Create next image element (initially hidden)
-    const nextImage = document.createElement('div');
-    nextImage.id = 'next-background-image';
-    nextImage.style.position = 'absolute';
-    nextImage.style.top = '0';
-    nextImage.style.left = '0';
-    nextImage.style.width = '100%';
-    nextImage.style.height = '100%';
-    nextImage.style.backgroundImage = `url('${backgroundImages[nextIndex]}')`;
-    nextImage.style.backgroundSize = 'cover';
-    nextImage.style.backgroundPosition = 'center';
-    nextImage.style.zIndex = '0';
-    nextImage.style.opacity = '0';
-    nextImage.style.transition = 'opacity 3s ease-in-out';
+    console.log(`Setup initial image: ${backgroundImages[currentImageIndex]}`);
     
-    // Add images to container
-    container.appendChild(nextImage);
-    container.appendChild(mainImage);
+    // Start continuous crossfade animation
+    const doCrossfade = () => {
+      // Get current positions
+      const currentPos = positions[activeIndex];
+      const nextPos = (activeIndex + 1) % 3;
+      const thirdPos = (activeIndex + 2) % 3;
+      
+      // Current visible image
+      const currentElement = imageElements[currentPos];
+      
+      // Next image to fade in
+      const nextElement = imageElements[nextPos];
+      
+      // Third element to prepare
+      const thirdElement = imageElements[thirdPos];
+      
+      // Get the next image index
+      currentImageIndex = (parseInt(currentElement.dataset.imageIndex) + 1) % backgroundImages.length;
+      const nextImageIndex = (currentImageIndex + 1) % backgroundImages.length;
+      
+      // Update the third element with the next image
+      thirdElement.style.opacity = '0';
+      thirdElement.style.backgroundImage = `url('${backgroundImages[nextImageIndex]}')`;
+      thirdElement.dataset.imageIndex = nextImageIndex.toString();
+      
+      // Log the transition
+      console.log(`Starting crossfade to: ${backgroundImages[currentImageIndex]}`);
+      
+      // Begin crossfade
+      nextElement.style.backgroundImage = `url('${backgroundImages[currentImageIndex]}')`;
+      nextElement.dataset.imageIndex = currentImageIndex.toString();
+      nextElement.style.zIndex = '2';
+      currentElement.style.zIndex = '1';
+      
+      // Ensure the third element is behind both
+      thirdElement.style.zIndex = '0';
+      
+      // Start the actual fade
+      nextElement.style.opacity = '1';
+      currentElement.style.opacity = '0';
+      
+      // Update tracking
+      activeIndex = nextPos;
+    };
     
-    console.log(`Setup main image: ${backgroundImages[currentIndex]}`);
-    console.log(`Prepared next image: ${backgroundImages[nextIndex]}`);
-    
-    // Start the image transition interval
-    const imageInterval = setInterval(() => {
-      // Update indices
-      currentIndex = nextIndex;
-      nextIndex = (nextIndex + 1) % backgroundImages.length;
-      
-      // Get the elements (they might have been replaced)
-      const mainImage = document.getElementById('main-background-image');
-      const nextImage = document.getElementById('next-background-image');
-      
-      if (!mainImage || !nextImage) {
-        // Elements not found - background mode may have changed
-        clearInterval(imageInterval);
-        return;
-      }
-      
-      // Set the next image source
-      nextImage.style.backgroundImage = `url('${backgroundImages[nextIndex]}')`;
-      
-      // Fade in the next image
-      nextImage.style.zIndex = '1';
-      nextImage.style.opacity = '1';
-      
-      // Fade out the main image
-      mainImage.style.zIndex = '0';
-      mainImage.style.opacity = '0';
-      
-      // After transition, swap the elements
-      setTimeout(() => {
-        // If elements still exist (mode hasn't changed)
-        if (document.getElementById('main-background-image') && document.getElementById('next-background-image')) {
-          // Update the main image for the next cycle
-          mainImage.style.backgroundImage = `url('${backgroundImages[currentIndex]}')`;
-          mainImage.style.zIndex = '1';
-          mainImage.style.opacity = '1';
-          
-          // Reset the next image
-          nextImage.style.zIndex = '0';
-          nextImage.style.opacity = '0';
-          
-          console.log(`Transitioned to image: ${backgroundImages[currentIndex]}`);
-          console.log(`Prepared next image: ${backgroundImages[nextIndex]}`);
-        }
-      }, 3000); // Wait for the crossfade to complete
-    }, 15000); // Change image every 15 seconds
+    // Start the continuous crossfades - change every 10 seconds
+    const crossfadeInterval = setInterval(doCrossfade, 10000);
     
     // Store the interval ID on the window object so it can be cleared if needed
-    window.currentBackgroundInterval = imageInterval;
+    window.currentBackgroundInterval = crossfadeInterval;
     
     return true;
   } catch (error) {
