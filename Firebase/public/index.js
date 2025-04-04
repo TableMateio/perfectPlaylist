@@ -280,21 +280,26 @@ async function setVideoBackground() {
           // Begin crossfade to next video
           console.log(`Transitioning from video ${currentVideoIndex + 1} to ${nextIndex + 1}`);
           
-          // Make the next video visible but with 0 opacity
-          nextVideoElement.style.display = 'block';
-          nextVideoElement.style.opacity = '0';
-          
-          // Play the next video
-          nextVideoElement.play().catch(err => {
-            console.error('Error playing next video:', err);
-          });
-          
           // Start crossfade animation
           setTimeout(() => {
-            // Fade out current video
-            videoElement.style.opacity = '0';
-            // Fade in next video
-            nextVideoElement.style.opacity = '1';
+            // Make the next video visible but with 0 opacity
+            nextVideoElement.style.display = 'block';
+            nextVideoElement.style.opacity = '0';
+            
+            // IMPORTANT: Start playing the next video at the exact moment we begin the crossfade
+            // This ensures the first frame of the next video appears during the transition
+            nextVideoElement.play().catch(err => {
+              console.error('Error playing next video:', err);
+            });
+            
+            // Immediately trigger the opacity transition after the video starts playing
+            // Use requestAnimationFrame to ensure DOM updates have processed
+            requestAnimationFrame(() => {
+              // Fade out current video
+              videoElement.style.opacity = '0';
+              // Fade in next video
+              nextVideoElement.style.opacity = '1';
+            });
             
             // After transition completes, swap the roles of the videos
             setTimeout(() => {
