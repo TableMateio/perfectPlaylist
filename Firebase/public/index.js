@@ -250,7 +250,20 @@ async function setVideoBackground() {
         videoElement.load();
       }
       
-      // Ensure video plays
+      // Calculate next video index for preloading
+      const nextIndex = (currentVideoIndex + 1) % backgroundVideos.length;
+      const nextVideo = backgroundVideos[nextIndex];
+      
+      // Preload the next video but don't play it yet
+      if (nextVideoElement.src !== new URL(nextVideo, window.location.href).href) {
+        nextVideoElement.src = nextVideo;
+        nextVideoElement.style.display = 'none'; // Keep it hidden until needed
+        nextVideoElement.preload = 'auto'; // Explicitly set preload
+        nextVideoElement.load(); // Load but don't play
+        console.log(`Preloaded next video: ${nextVideo}`);
+      }
+      
+      // Ensure current video plays
       videoElement.play().catch(err => {
         console.error('Error playing video:', err);
         // Fall back to image if video fails to play
@@ -258,9 +271,10 @@ async function setVideoBackground() {
         return;
       });
       
-      // Calculate next video index (for preloading)
-      const nextIndex = (currentVideoIndex + 1) % backgroundVideos.length;
-      const nextVideo = backgroundVideos[nextIndex];
+      // DEBUG: Log when the video starts playing
+      videoElement.onplay = () => {
+        console.log(`Video ${currentVideoIndex + 1} started playing: ${selectedVideo}`);
+      };
       
       // Add event listener for when current video ends
       videoElement.onended = () => {
@@ -269,19 +283,29 @@ async function setVideoBackground() {
         // Update the index for the next cycle
         currentVideoIndex = nextIndex;
         
-        // Load the next video with no transition
-        nextVideoElement.src = nextVideo;
+        // Make next video visible and play it
         nextVideoElement.style.display = 'block';
         nextVideoElement.style.opacity = '1';
         
-        // Start playing the next video immediately
-        nextVideoElement.load();
-        nextVideoElement.play().catch(err => {
-          console.error('Error playing next video:', err);
-        });
+        // Play the next video immediately
+        const playPromise = nextVideoElement.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(err => {
+            console.error('Error playing next video:', err);
+            // If autoplay is blocked, try again with user interaction
+            nextVideoElement.muted = true; // Ensure muted to help with autoplay
+            nextVideoElement.play().catch(innerErr => {
+              console.error('Second attempt to play video failed:', innerErr);
+            });
+          });
+        }
         
         // Swap the elements' roles
         [videoElement.className, nextVideoElement.className] = [nextVideoElement.className, videoElement.className];
+        
+        // Reset opacity on the now-hidden element
+        videoElement.style.opacity = '0';
+        videoElement.style.display = 'none';
         
         // Call this function again to set up the next video
         setTimeout(() => {
