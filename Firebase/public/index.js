@@ -130,6 +130,7 @@ let playedVideoCount = 0;
 const backgroundVideos = [];
 const backgroundImages = []; // Will be populated from images/list.json
 const BACKGROUND_PREF_KEY = 'perfectPlaylist_backgroundPreference';
+const VIDEO_SPEED_PREF_KEY = 'perfectPlaylist_videoSpeedPreference';
 
 // Function to set a random background
 async function setRandomBackground() {
@@ -289,6 +290,11 @@ async function setVideoBackground() {
   try {
     console.log("Starting video background setup");
     
+    // Get video speed preference or default to normal
+    const speedPreference = localStorage.getItem(VIDEO_SPEED_PREF_KEY) || 'normal';
+    const playbackRate = speedPreference === 'slow' ? 0.5 : 1.0;
+    console.log(`Using video playback speed: ${playbackRate}x (${speedPreference} mode)`);
+    
     // Hide the static background div
     const bgAppElement = document.querySelector('.bg-app');
     if (bgAppElement) {
@@ -399,6 +405,7 @@ async function setVideoBackground() {
     mainVideo.autoplay = true;
     mainVideo.muted = true;
     mainVideo.playsInline = true;
+    mainVideo.playbackRate = playbackRate; // Set initial playback rate
     mainVideo.src = currentVideoObj.file;
     
     // Add to container
@@ -420,11 +427,9 @@ async function setVideoBackground() {
     nextVideo.style.zIndex = '2';
     nextVideo.muted = true;
     nextVideo.playsInline = true;
+    nextVideo.playbackRate = playbackRate; // Set initial playback rate
     nextVideo.src = nextVideoObj.file;
     nextVideo.load(); // Preload the next video
-    
-    // Add to container
-    container.appendChild(nextVideo);
     
     console.log(`Setup main video: ${currentVideoObj.file}`);
     console.log(`Preloaded next video: ${nextVideoObj.file}`);
@@ -650,6 +655,7 @@ async function setVideoBackground() {
         newNextVideo.style.zIndex = '2';
         newNextVideo.muted = true;
         newNextVideo.playsInline = true;
+        newNextVideo.playbackRate = playbackRate; // Set initial playback rate
         newNextVideo.src = newNextVideoObj.file;
         newNextVideo.load(); // Preload it
         
@@ -686,6 +692,34 @@ async function setVideoBackground() {
     });
     
     console.log('Video background initialized successfully');
+    
+    // Add event listeners to maintain playback rate
+    const setVideoSpeed = (video) => {
+      if (video && video.playbackRate !== playbackRate) {
+        video.playbackRate = playbackRate;
+      }
+    };
+    
+    // Ensure playback rate is maintained even if the browser resets it
+    mainVideo.addEventListener('play', () => setVideoSpeed(mainVideo));
+    mainVideo.addEventListener('loadeddata', () => setVideoSpeed(mainVideo));
+    mainVideo.addEventListener('ratechange', () => {
+      // Only force it if it's different and not a direct user action
+      if (mainVideo.playbackRate !== playbackRate) {
+        console.log(`Correcting main video playback rate to ${playbackRate}x`);
+        mainVideo.playbackRate = playbackRate;
+      }
+    });
+    
+    // Same for next video
+    nextVideo.addEventListener('play', () => setVideoSpeed(nextVideo));
+    nextVideo.addEventListener('loadeddata', () => setVideoSpeed(nextVideo));
+    nextVideo.addEventListener('ratechange', () => {
+      if (nextVideo.playbackRate !== playbackRate) {
+        console.log(`Correcting next video playback rate to ${playbackRate}x`);
+        nextVideo.playbackRate = playbackRate;
+      }
+    });
     
   } catch (error) {
     console.error('Error in video background setup:', error);
@@ -838,33 +872,48 @@ document.addEventListener("DOMContentLoaded", () => {
   // Add background toggle control
   const controlsContainer = document.createElement('div');
   controlsContainer.id = 'background-controls';
-  controlsContainer.className = 'absolute bottom-4 right-4';
+  controlsContainer.className = 'absolute bottom-4 right-4 flex flex-col gap-2';
   controlsContainer.style.zIndex = '100';
   
-  // Get current preference or default to video
-  const currentPreference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'video';
+  // Get current preferences
+  const currentBgPreference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'video';
+  const currentSpeedPreference = localStorage.getItem(VIDEO_SPEED_PREF_KEY) || 'normal';
   
-  // Create toggle switch
+  // Create toggle switches HTML
   controlsContainer.innerHTML = `
     <div class="bg-toggle p-2 rounded-lg bg-black bg-opacity-50 text-white text-xs flex items-center">
       <span class="mr-2">Background:</span>
       <label class="switch">
-        <input type="checkbox" id="background-toggle" ${currentPreference === 'image' ? 'checked' : ''}>
+        <input type="checkbox" id="background-toggle" ${currentBgPreference === 'image' ? 'checked' : ''}>
         <span class="slider round"></span>
       </label>
-      <span class="ml-2">${currentPreference === 'image' ? 'Images' : 'Video'}</span>
+      <span class="ml-2">${currentBgPreference === 'image' ? 'Images' : 'Video'}</span>
+    </div>
+    <div class="speed-toggle p-2 rounded-lg bg-black bg-opacity-50 text-white text-xs flex items-center ${currentBgPreference === 'image' ? 'hidden' : ''}">
+      <span class="mr-2">Video Speed:</span>
+      <label class="switch">
+        <input type="checkbox" id="speed-toggle" ${currentSpeedPreference === 'slow' ? 'checked' : ''}>
+        <span class="slider round"></span>
+      </label>
+      <span class="ml-2">${currentSpeedPreference === 'slow' ? '0.5x' : '1x'}</span>
     </div>
   `;
   
   document.body.appendChild(controlsContainer);
   
-  // Add event listener for toggle switch
+  // Add background type toggle event listener
   document.getElementById('background-toggle').addEventListener('change', async (e) => {
     const newPreference = e.target.checked ? 'image' : 'video';
     localStorage.setItem(BACKGROUND_PREF_KEY, newPreference);
     
     // Update label text
     e.target.parentNode.nextElementSibling.textContent = newPreference === 'image' ? 'Images' : 'Video';
+    
+    // Show/hide the speed toggle based on video/image selection
+    const speedToggle = document.querySelector('.speed-toggle');
+    if (speedToggle) {
+      speedToggle.classList.toggle('hidden', newPreference === 'image');
+    }
     
     // Clear any existing interval
     if (window.currentBackgroundInterval) {
@@ -876,6 +925,23 @@ document.addEventListener("DOMContentLoaded", () => {
     setRandomBackground().catch(err => {
       console.error("Error changing background:", err);
     });
+  });
+  
+  // Add video speed toggle event listener
+  document.getElementById('speed-toggle').addEventListener('change', async (e) => {
+    const newSpeedPreference = e.target.checked ? 'slow' : 'normal';
+    localStorage.setItem(VIDEO_SPEED_PREF_KEY, newSpeedPreference);
+    
+    // Update label text
+    e.target.parentNode.nextElementSibling.textContent = newSpeedPreference === 'slow' ? '0.5x' : '1x';
+    
+    // Only reload if we're currently in video mode
+    if (localStorage.getItem(BACKGROUND_PREF_KEY) === 'video') {
+      // Clear the container and restart video with new speed
+      setVideoBackground().catch(err => {
+        console.error("Error changing video speed:", err);
+      });
+    }
   });
 });
 
