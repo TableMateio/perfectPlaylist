@@ -434,9 +434,12 @@ async function setVideoBackground() {
     console.log(`Setup main video: ${currentVideoObj.file}`);
     console.log(`Preloaded next video: ${nextVideoObj.file}`);
     
-    // Handle main video loading and playback
+    // Add event listeners to ensure the playback rate is maintained
     mainVideo.addEventListener('loadeddata', () => {
       console.log('Main video loaded and ready to play, duration:', mainVideo.duration);
+      // Force playback rate immediately after loading
+      mainVideo.playbackRate = playbackRate;
+      console.log(`Set main video playback rate to ${playbackRate}x`);
       
       // Fade out the fallback image and fade in the video
       const fallbackImage = document.getElementById('video-fallback-image');
@@ -455,6 +458,44 @@ async function setVideoBackground() {
       setTimeout(() => {
         mainVideo.style.opacity = '1';
       }, 100);
+    });
+    
+    // Ensure playback rate is set when play begins
+    mainVideo.addEventListener('play', () => {
+      if (mainVideo.playbackRate !== playbackRate) {
+        mainVideo.playbackRate = playbackRate;
+        console.log(`Reset main video playback rate to ${playbackRate}x on play`);
+      }
+    });
+    
+    // Monitor for any playback rate changes and correct them
+    mainVideo.addEventListener('ratechange', () => {
+      if (mainVideo.playbackRate !== playbackRate) {
+        console.log(`Correcting main video playback rate from ${mainVideo.playbackRate} to ${playbackRate}`);
+        // Use setTimeout to ensure this doesn't cause infinite loops
+        setTimeout(() => { mainVideo.playbackRate = playbackRate; }, 0);
+      }
+    });
+    
+    // Do the same for the next video
+    nextVideo.addEventListener('loadeddata', () => {
+      nextVideo.playbackRate = playbackRate;
+      console.log(`Set next video playback rate to ${playbackRate}x`);
+    });
+    
+    nextVideo.addEventListener('play', () => {
+      if (nextVideo.playbackRate !== playbackRate) {
+        nextVideo.playbackRate = playbackRate;
+        console.log(`Reset next video playback rate to ${playbackRate}x on play`);
+      }
+    });
+    
+    nextVideo.addEventListener('ratechange', () => {
+      if (nextVideo.playbackRate !== playbackRate) {
+        console.log(`Correcting next video playback rate from ${nextVideo.playbackRate} to ${playbackRate}`);
+        // Use setTimeout to ensure this doesn't cause infinite loops
+        setTimeout(() => { nextVideo.playbackRate = playbackRate; }, 0);
+      }
     });
     
     // Handle main video end
@@ -935,9 +976,19 @@ document.addEventListener("DOMContentLoaded", () => {
     // Update label text
     e.target.parentNode.nextElementSibling.textContent = newSpeedPreference === 'slow' ? '0.5x' : '1x';
     
+    console.log(`Changing video speed to: ${newSpeedPreference}`);
+    
     // Only reload if we're currently in video mode
     if (localStorage.getItem(BACKGROUND_PREF_KEY) === 'video') {
       // Clear the container and restart video with new speed
+      const container = document.querySelector('#background-video-container');
+      if (container) {
+        // Clear existing videos
+        console.log('Clearing video container for speed change');
+        container.innerHTML = '';
+      }
+      
+      // Restart with new speed setting
       setVideoBackground().catch(err => {
         console.error("Error changing video speed:", err);
       });
