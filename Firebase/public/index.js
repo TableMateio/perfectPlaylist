@@ -202,20 +202,12 @@ async function setRandomImageBackground() {
 // Function to set video backgrounds and cycle through them
 async function setVideoBackground() {
   try {
-    console.log("Starting setVideoBackground, current index:", currentVideoIndex);
+    console.log("Starting setVideoBackground setup");
     
     // Hide the static background div
     const bgAppElement = document.querySelector('.bg-app');
     if (bgAppElement) {
       bgAppElement.style.display = 'none';
-    }
-    
-    // Get the video elements
-    const mainVideo = document.querySelector('.bg-video');
-    const nextVideo = document.querySelector('.bg-video-next');
-    
-    if (!mainVideo || !nextVideo) {
-      throw new Error('Video elements not found');
     }
     
     // If this is the first time, fetch the video list
@@ -245,188 +237,73 @@ async function setVideoBackground() {
       throw new Error('No background videos available');
     }
     
-    // Current video details
-    const currentVideoSrc = backgroundVideos[currentVideoIndex];
-    console.log(`Setting up current video ${currentVideoIndex + 1}/${backgroundVideos.length}: ${currentVideoSrc}`);
+    // Initialize Bideo.js
+    const bideo = new Bideo();
     
-    // Calculate next video index
-    const nextVideoIndex = (currentVideoIndex + 1) % backgroundVideos.length;
-    const nextVideoSrc = backgroundVideos[nextVideoIndex];
-    console.log(`Next video will be ${nextVideoIndex + 1}/${backgroundVideos.length}: ${nextVideoSrc}`);
+    // Get the container element
+    const container = document.querySelector('#background-video-container');
     
-    // Clear any existing event listeners to prevent memory leaks
-    mainVideo.onended = null;
-    mainVideo.onplay = null;
-    mainVideo.ontimeupdate = null;
-    mainVideo.onloadedmetadata = null;
-    mainVideo.onerror = null;
-    
-    nextVideo.onended = null;
-    nextVideo.onplay = null;
-    nextVideo.ontimeupdate = null;
-    nextVideo.onloadedmetadata = null;
-    nextVideo.onerror = null;
-    
-    // Set up logging listeners to debug video events
-    mainVideo.onloadedmetadata = () => {
-      console.log(`Main video metadata loaded. Duration: ${mainVideo.duration}s`);
-    };
-    
-    mainVideo.onerror = (e) => {
-      console.error(`Main video error: ${mainVideo.error?.message || 'Unknown error'}`, mainVideo.error);
-    };
-    
-    // Set up the current video
-    mainVideo.src = currentVideoSrc;
-    mainVideo.style.display = 'block';
-    mainVideo.style.opacity = '1';
-    mainVideo.style.transition = 'opacity 1s ease-in-out';
-    
-    // Preload the next video but keep it hidden
-    nextVideo.src = nextVideoSrc;
-    nextVideo.preload = 'auto'; // Ensure it preloads
-    nextVideo.style.display = 'block'; // Need display:block to preload properly
-    nextVideo.style.opacity = '0';
-    nextVideo.style.transition = 'opacity 1s ease-in-out';
-    nextVideo.muted = true; // Mute to avoid autoplay issues
-    nextVideo.currentTime = 0; // Reset to beginning
-    
-    // Preload but don't play
-    nextVideo.load();
-    
-    // Debug event handler for next video preloading
-    nextVideo.onloadeddata = () => {
-      console.log(`Next video preloaded and ready: ${nextVideoIndex + 1}/${backgroundVideos.length}`);
-    };
-    
-    // Debug event handler for current video playing
-    mainVideo.onplay = () => {
-      console.log(`Now playing video ${currentVideoIndex + 1}/${backgroundVideos.length}, duration: ${mainVideo.duration}s`);
-    };
-    
-    // Add timeupdate listener instead of onended
-    // This is more reliable for detecting when we're near the end
-    let fadeStarted = false;
-    let transitionTriggered = false;
-    
-    mainVideo.ontimeupdate = () => {
-      // Log every 5 seconds for debugging
-      if (Math.floor(mainVideo.currentTime) % 5 === 0 && mainVideo.currentTime > 0) {
-        console.log(`Video playback at ${Math.floor(mainVideo.currentTime)}s / ${Math.floor(mainVideo.duration)}s`);
-      }
+    // Setup Bideo
+    bideo.init({
+      // Video element
+      videoEl: document.createElement('video'),
       
-      // Check if we're near the end of the video
-      const timeRemaining = mainVideo.duration - mainVideo.currentTime;
+      // Container element
+      container: container,
       
-      // Start crossfade 1 second before the end
-      if (timeRemaining <= 1.0 && mainVideo.duration > 0 && !fadeStarted) {
-        fadeStarted = true;
-        console.log(`Starting crossfade with ${timeRemaining.toFixed(2)}s remaining`);
+      // Resize to fill parent element
+      resize: true,
+      
+      // Automatically play
+      autoplay: true,
+      
+      // Loop video
+      loop: false, // We'll handle looping manually to cycle through videos
+      
+      // Keep it muted for autoplay
+      isMobile: true, // This forces muting
+      
+      // Array of videos to cycle through
+      src: backgroundVideos.map(src => {
+        return { 
+          src: src, 
+          type: 'video/mp4'
+        };
+      }),
+      
+      // Start with first video
+      startAt: 0,
+      
+      // Fade in duration
+      fadeInDuration: 1000,
+      
+      // Called when video is loaded and ready
+      onLoad: () => {
+        console.log('Video loaded, ready to play');
+        document.querySelector('.bideo-container video').style.opacity = 1;
+      },
+      
+      // Called when current video ends
+      onEnd: () => {
+        // Update index for next video
+        currentVideoIndex = (currentVideoIndex + 1) % backgroundVideos.length;
+        console.log(`Current video ended, switching to video ${currentVideoIndex + 1}/${backgroundVideos.length}`);
         
-        // Start fading out the current video
-        mainVideo.style.opacity = '0';
-        
-        // Play and fade in the next video
-        try {
-          // Start the next video
-          const playPromise = nextVideo.play();
-          nextVideo.style.opacity = '1';
-          
-          if (playPromise !== undefined) {
-            playPromise
-              .then(() => console.log(`Next video ${nextVideoIndex + 1} started playing during crossfade`))
-              .catch(error => {
-                console.error('Error starting next video during crossfade:', error);
-                // Try to recover somehow
-                startNextVideoWithFallback();
-              });
-          }
-        } catch (error) {
-          console.error('Error during crossfade transition:', error);
-          startNextVideoWithFallback();
-        }
+        // Play the next video with crossfade
+        bideo.switchVideo(currentVideoIndex, 1000);
       }
-      
-      // Complete transition when we're done with the video
-      // This is a safety to ensure we transition even if the fade didn't work
-      if (timeRemaining <= 0.05 && mainVideo.duration > 0 && !transitionTriggered) {
-        transitionTriggered = true;
-        console.log(`Video ${currentVideoIndex + 1} ended, completing transition`);
-        completeTransition();
-      }
-    };
+    });
     
-    // Function to handle a fallback start if the crossfade fails
-    function startNextVideoWithFallback() {
-      console.log('Using fallback method to start next video');
-      
-      // Try again with force
-      nextVideo.muted = true;
-      nextVideo.currentTime = 0;
-      nextVideo.style.opacity = '1';
-      
-      try {
-        // Force play with direct play() call
-        nextVideo.play()
-          .then(() => console.log('Next video started with fallback'))
-          .catch(err => {
-            console.error('Even fallback failed:', err);
-            // Last resort: complete transition anyway
-            completeTransition();
-          });
-      } catch (e) {
-        console.error('Exception in fallback play():', e);
-        completeTransition();
-      }
-    }
+    // Apply some custom styling to the container
+    container.style.position = 'fixed';
+    container.style.top = '0';
+    container.style.left = '0';
+    container.style.width = '100%';
+    container.style.height = '100%';
+    container.style.zIndex = '-2';
+    container.style.overflow = 'hidden';
     
-    // Function to finalize the transition to the next video
-    function completeTransition() {
-      console.log(`Completing transition from video ${currentVideoIndex + 1} to video ${nextVideoIndex + 1}`);
-      
-      // Update the index for the next cycle
-      currentVideoIndex = nextVideoIndex;
-      
-      // Ensure next video is fully visible
-      nextVideo.style.opacity = '1';
-      
-      // Hide and stop the old video
-      mainVideo.style.opacity = '0';
-      mainVideo.pause();
-      
-      // Reset for next cycle
-      setTimeout(() => {
-        console.log('Setting up next video cycle...');
-        setVideoBackground();
-      }, 100);
-    }
-    
-    // Make sure the main video plays
-    try {
-      console.log('Attempting to play first video...');
-      const playPromise = mainVideo.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => console.log('Video started playing successfully'))
-          .catch(error => {
-            console.error('Error playing main video:', error);
-            // Try with muted if autoplay was blocked
-            mainVideo.muted = true;
-            console.log('Retrying with muted attribute');
-            mainVideo.play()
-              .then(() => console.log('Video started playing after adding muted attribute'))
-              .catch(err => {
-                console.error('All play attempts failed:', err);
-                // Fall back to image background as last resort
-                setRandomImageBackground();
-              });
-          });
-      }
-    } catch (playError) {
-      console.error('Exception playing video:', playError);
-      setRandomImageBackground(); // Fall back to image
-    }
-    
+    console.log('Bideo.js initialized with videos:', backgroundVideos);
   } catch (error) {
     console.error('Error in video background setup:', error);
     // Fall back to image background
@@ -448,6 +325,12 @@ function fallbackToDefaultBackground() {
 function toggleBackgroundType(useVideo) {
   // Save preference
   localStorage.setItem(BACKGROUND_PREF_KEY, useVideo ? 'video' : 'image');
+  
+  // Clear existing container
+  const container = document.querySelector('#background-video-container');
+  if (container) {
+    container.innerHTML = '';
+  }
   
   // Update the background
   if (useVideo) {

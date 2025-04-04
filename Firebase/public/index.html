@@ -32,6 +32,9 @@
   <!-- Add html2canvas library for screenshot functionality -->
   <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   
+  <!-- Add Bideo.js for background video management -->
+  <script src="/js/bideo.min.js"></script>
+  
   <!-- Embed environment configuration directly -->
   <script>
     // Environment configuration for Perfect Playlist app
@@ -152,9 +155,9 @@
 </head>
 <body>
   <div class="bg-app"></div>
-  <!-- Background video elements -->
-  <video class="bg-video" autoplay muted loop playsinline></video>
-  <video class="bg-video-next" autoplay muted loop playsinline></video>
+  
+  <!-- Background video container for Bideo.js -->
+  <div id="background-video-container"></div>
   
   <!-- Background toggle switch -->
   <div class="bg-toggle-container">
