@@ -257,8 +257,24 @@ async function setVideoBackground() {
     // Clear any existing event listeners to prevent memory leaks
     mainVideo.onended = null;
     mainVideo.onplay = null;
+    mainVideo.ontimeupdate = null;
+    mainVideo.onloadedmetadata = null;
+    mainVideo.onerror = null;
+    
     nextVideo.onended = null;
     nextVideo.onplay = null;
+    nextVideo.ontimeupdate = null;
+    nextVideo.onloadedmetadata = null;
+    nextVideo.onerror = null;
+    
+    // Set up logging listeners to debug video events
+    mainVideo.onloadedmetadata = () => {
+      console.log(`Main video metadata loaded. Duration: ${mainVideo.duration}s`);
+    };
+    
+    mainVideo.onerror = (e) => {
+      console.error(`Main video error: ${mainVideo.error?.message || 'Unknown error'}`, mainVideo.error);
+    };
     
     // Set up the current video
     mainVideo.src = currentVideoSrc;
@@ -273,12 +289,36 @@ async function setVideoBackground() {
     
     // Debug event handler for current video playing
     mainVideo.onplay = () => {
-      console.log(`Now playing video ${currentVideoIndex + 1}/${backgroundVideos.length}`);
+      console.log(`Now playing video ${currentVideoIndex + 1}/${backgroundVideos.length}, duration: ${mainVideo.duration}s`);
     };
     
-    // Critical event handler for when current video ends
-    mainVideo.onended = () => {
-      console.log(`Video ${currentVideoIndex + 1} ended, switching to video ${nextVideoIndex + 1}`);
+    // Add timeupdate listener instead of onended
+    // This is more reliable for detecting when we're near the end
+    let transitionTriggered = false;
+    
+    mainVideo.ontimeupdate = () => {
+      // Log every 5 seconds for debugging
+      if (Math.floor(mainVideo.currentTime) % 5 === 0 && mainVideo.currentTime > 0) {
+        console.log(`Video playback at ${Math.floor(mainVideo.currentTime)}s / ${Math.floor(mainVideo.duration)}s`);
+      }
+      
+      // Check if we're near the end of the video
+      const timeRemaining = mainVideo.duration - mainVideo.currentTime;
+      
+      // Trigger transition when we're 0.2 seconds from the end
+      if (timeRemaining <= 0.2 && mainVideo.duration > 0 && !transitionTriggered) {
+        // Only trigger once
+        transitionTriggered = true;
+        console.log(`Video ${currentVideoIndex + 1} near end (${timeRemaining.toFixed(2)}s remaining), triggering transition`);
+        
+        // Move to the next video
+        moveToNextVideo();
+      }
+    };
+    
+    // Function to handle moving to the next video
+    function moveToNextVideo() {
+      console.log(`Transitioning from video ${currentVideoIndex + 1} to video ${nextVideoIndex + 1}`);
       
       // Update the index for the next cycle
       currentVideoIndex = nextVideoIndex;
@@ -292,35 +332,46 @@ async function setVideoBackground() {
       if (playPromise !== undefined) {
         playPromise.catch(error => {
           console.error('Error playing next video:', error);
-          nextVideo.muted = true; // Ensure it's muted (helps with autoplay)
-          nextVideo.play(); // Try again
+          // Try again with muted attribute if autoplay was blocked
+          nextVideo.muted = true; 
+          console.log('Retrying with muted video');
+          nextVideo.play()
+            .then(() => console.log('Next video started playing after retry'))
+            .catch(err => console.error('Second attempt also failed:', err));
         });
       }
       
-      // Hide the current video now that next is playing
+      // Hide the current video
       mainVideo.style.display = 'none';
+      mainVideo.pause(); // Stop playing current video to save resources
       
-      // IMPORTANT: Swap the elements
-      const tempSrc = mainVideo.src;
-      mainVideo.src = nextVideo.src;
-      nextVideo.src = tempSrc;
-      
-      // After a short delay, call this function again to set up the next video in sequence
+      // Reset for next cycle
       setTimeout(() => {
+        console.log('Setting up next video cycle...');
         setVideoBackground();
       }, 100);
-    };
+    }
     
     // Make sure the main video plays
     try {
+      console.log('Attempting to play first video...');
       const playPromise = mainVideo.play();
       if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          console.error('Error playing main video:', error);
-          // Try with muted if autoplay was blocked
-          mainVideo.muted = true;
-          mainVideo.play();
-        });
+        playPromise
+          .then(() => console.log('Video started playing successfully'))
+          .catch(error => {
+            console.error('Error playing main video:', error);
+            // Try with muted if autoplay was blocked
+            mainVideo.muted = true;
+            console.log('Retrying with muted attribute');
+            mainVideo.play()
+              .then(() => console.log('Video started playing after adding muted attribute'))
+              .catch(err => {
+                console.error('All play attempts failed:', err);
+                // Fall back to image background as last resort
+                setRandomImageBackground();
+              });
+          });
       }
     } catch (playError) {
       console.error('Exception playing video:', playError);
