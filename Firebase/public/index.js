@@ -1269,30 +1269,8 @@ async function deletePlaylist(token, playlistId) {
 
 
 async function deletePlaylistHandler(token, playlistId) {
-  try {
-    await deletePlaylist(token, playlistId);
-  } catch (error) {
-    console.error('Error deleting playlist:', error);
-  } finally {
-    // Update the UI regardless of whether the deletion was successful or not
-    const playlistViewerDiv = document.getElementById('playlist-viewer');
-    console.log("Deleting before if statement");
-    if (playlistViewerDiv) {
-      console.log("Deleting updating UI initiated");
-      // Clear the playlistViewerDiv
-      playlistViewerDiv.innerHTML = '';
-
-      // Create a text block
-      let element = document.getElementById("playlist-buttons");
-      element.classList.add("unauthenticated");
-      const textBlock = document.createElement('p');
-      textBlock.className = 'playlist-coming';
-      textBlock.textContent = 'Playlist removed from your spotify... Generate a new playlist.';
-
-      // Append the text block
-      playlistViewerDiv.appendChild(textBlock);
-    }
-  }
+  // Redirect to our improved unfollowPlaylist function
+  unfollowPlaylist(playlistId);
 }
 
 
@@ -1638,6 +1616,7 @@ function showPlaylistEmbed(playlistId) {
   // Update buttons
   const buttons = document.getElementById('playlist-buttons');
   buttons.style.display = 'flex';
+  buttons.classList.remove('unauthenticated'); // Ensure buttons are visible
   
   // Set up the "Open in Spotify" button
   const openInSpotifyBtn = document.getElementById('open-in-spotify');
@@ -1672,9 +1651,9 @@ function resetUI() {
   document.getElementById('playlist-description-input').value = '';
 }
 
-// Call resetUI at appropriate places in your code
-// For example, after unfollowing a playlist
+// Direct implementation of unfollow playlist
 function unfollowPlaylist(playlistId) {
+  console.log("Unfollowing playlist with ID:", playlistId);
   const firebaseUID = sessionStorage.getItem('firebaseUID');
   const accessToken = sessionStorage.getItem('spotifyAccessToken');
   
@@ -1692,10 +1671,19 @@ function unfollowPlaylist(playlistId) {
     loadingMsg.textContent = 'Removing playlist...';
     playlistViewerDiv.appendChild(loadingMsg);
   }
-  
-  // Call Spotify API to unfollow the playlist
-  spotifyAPI(accessToken, `https://api.spotify.com/v1/playlists/${playlistId}/followers`, 'DELETE', {}, firebaseUID)
-    .then(() => {
+
+  // Use fetch directly instead of spotifyAPI to avoid any potential issues
+  fetch(`https://api.spotify.com/v1/playlists/${playlistId}/followers`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(response => {
+    console.log("Playlist unfollow response status:", response.status);
+    
+    if (response.status === 200 || response.status === 204) {
       console.log("Playlist successfully unfollowed");
       
       // Update the UI
@@ -1751,17 +1739,20 @@ function unfollowPlaylist(playlistId) {
           textarea.classList.remove('highlight-input');
         }, 1500);
       }
-    })
-    .catch(error => {
-      console.error("Error unfollowing playlist:", error);
-      
-      // Show error message
-      if (playlistViewerDiv) {
-        playlistViewerDiv.innerHTML = '';
-        const errorMsg = document.createElement('p');
-        errorMsg.className = 'playlist-coming';
-        errorMsg.textContent = 'There was an error removing the playlist. Please try again.';
-        playlistViewerDiv.appendChild(errorMsg);
-      }
-    });
+    } else {
+      throw new Error(`Failed to unfollow playlist. Status: ${response.status}`);
+    }
+  })
+  .catch(error => {
+    console.error("Error unfollowing playlist:", error);
+    
+    // Show error message
+    if (playlistViewerDiv) {
+      playlistViewerDiv.innerHTML = '';
+      const errorMsg = document.createElement('p');
+      errorMsg.className = 'playlist-coming';
+      errorMsg.textContent = 'There was an error removing the playlist. Please try again.';
+      playlistViewerDiv.appendChild(errorMsg);
+    }
+  });
 }
