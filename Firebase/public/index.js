@@ -382,10 +382,12 @@ async function setVideoBackground() {
       // Use setTimeout to ensure the transition has time to complete visually
       setTimeout(() => {
         // Update the index for next time
-        currentVideoIndex = nextVideoIndex;
+        currentVideoIndex = (currentVideoIndex + 1) % backgroundVideos.length;
         
         // Create a new next video for the next cycle
         const newNextIndex = (currentVideoIndex + 1) % backgroundVideos.length;
+        
+        console.log(`Moving to next video cycle: Current=${currentVideoIndex + 1}, Next=${newNextIndex + 1} of ${backgroundVideos.length} videos`);
         
         // Create a new video element that will be used in the next transition
         const newNextVideo = document.createElement('video');
