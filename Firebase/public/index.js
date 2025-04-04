@@ -144,10 +144,16 @@ async function setRandomBackground() {
   }
 }
 
-// New function to set image backgrounds
+// For image background: Fix the initialization and ensure proper cleanup
 async function setImageBackground() {
   try {
     console.log("Starting image background setup");
+    
+    // Clear any existing interval first to prevent memory leaks
+    if (window.currentBackgroundInterval) {
+      clearInterval(window.currentBackgroundInterval);
+      window.currentBackgroundInterval = null;
+    }
     
     // Hide the static background div
     const bgAppElement = document.querySelector('.bg-app');
@@ -166,24 +172,29 @@ async function setImageBackground() {
     
     // If this is the first time, fetch the image list
     if (backgroundImages.length === 0) {
-      // Fetch the list of background images from JSON file
-      const response = await fetch('images/list.json');
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image list: ${response.status} ${response.statusText}`);
+      try {
+        // Fetch the list of background images from JSON file
+        const response = await fetch('images/list.json');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image list: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        const imageList = data.images || [];
+        
+        // Update our backgroundImages array with the fetched images
+        backgroundImages.length = 0; // Clear the array
+        backgroundImages.push(...imageList); // Add all images from JSON
+        
+        if (imageList.length === 0) {
+          throw new Error('No background images found in the JSON file');
+        }
+        
+        console.log(`Loaded ${imageList.length} images from list.json`);
+      } catch (error) {
+        console.error('Error loading image list:', error);
+        throw error;
       }
-      
-      const data = await response.json();
-      const imageList = data.images || [];
-      
-      // Update our backgroundImages array with the fetched images
-      backgroundImages.length = 0; // Clear the array
-      backgroundImages.push(...imageList); // Add all images from JSON
-      
-      if (imageList.length === 0) {
-        throw new Error('No background images found in the JSON file');
-      }
-      
-      console.log(`Loaded ${imageList.length} images from list.json`);
     }
     
     // Make sure we have images to work with
@@ -196,6 +207,29 @@ async function setImageBackground() {
     const positions = [0, 1, 2]; // Tracking positions in rotation
     let activeIndex = 0; // Currently visible image (fully opaque)
     let currentImageIndex = Math.floor(Math.random() * backgroundImages.length);
+    
+    try {
+      // Preload first few images to avoid loading delays during transitions
+      console.log("Preloading initial images...");
+      const preloadPromises = [];
+      for (let i = 0; i < Math.min(3, backgroundImages.length); i++) {
+        const imgIndex = (currentImageIndex + i) % backgroundImages.length;
+        const preloadPromise = new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error(`Failed to preload image: ${backgroundImages[imgIndex]}`));
+          img.src = backgroundImages[imgIndex];
+        });
+        preloadPromises.push(preloadPromise);
+      }
+      
+      // Wait for initial images to load
+      await Promise.all(preloadPromises);
+      console.log("Initial images preloaded successfully");
+    } catch (preloadError) {
+      console.warn("Some images failed to preload:", preloadError);
+      // Continue anyway - the browser will try to load them when needed
+    }
     
     // Create three image elements (only one visible initially)
     for (let i = 0; i < 3; i++) {
@@ -226,49 +260,65 @@ async function setImageBackground() {
     
     console.log(`Setup initial image: ${backgroundImages[currentImageIndex]}`);
     
-    // Start continuous crossfade animation
+    // Start crossfade animation
     const doCrossfade = () => {
-      // Get current positions
-      const currentPos = positions[activeIndex];
-      const nextPos = (activeIndex + 1) % 3;
-      const thirdPos = (activeIndex + 2) % 3;
-      
-      // Current visible image
-      const currentElement = imageElements[currentPos];
-      
-      // Next image to fade in
-      const nextElement = imageElements[nextPos];
-      
-      // Third element to prepare
-      const thirdElement = imageElements[thirdPos];
-      
-      // Get the next image index
-      currentImageIndex = (Number.parseInt(currentElement.dataset.imageIndex) + 1) % backgroundImages.length;
-      const nextImageIndex = (currentImageIndex + 1) % backgroundImages.length;
-      
-      // Update the third element with the next image
-      thirdElement.style.opacity = '0';
-      thirdElement.style.backgroundImage = `url('${backgroundImages[nextImageIndex]}')`;
-      thirdElement.dataset.imageIndex = nextImageIndex.toString();
-      
-      // Log the transition
-      console.log(`Starting crossfade to: ${backgroundImages[currentImageIndex]}`);
-      
-      // Begin crossfade
-      nextElement.style.backgroundImage = `url('${backgroundImages[currentImageIndex]}')`;
-      nextElement.dataset.imageIndex = currentImageIndex.toString();
-      nextElement.style.zIndex = '2';
-      currentElement.style.zIndex = '1';
-      
-      // Ensure the third element is behind both
-      thirdElement.style.zIndex = '0';
-      
-      // Start the actual fade
-      nextElement.style.opacity = '1';
-      currentElement.style.opacity = '0';
-      
-      // Update tracking
-      activeIndex = nextPos;
+      try {
+        // Get current positions
+        const currentPos = positions[activeIndex];
+        const nextPos = (activeIndex + 1) % 3;
+        const thirdPos = (activeIndex + 2) % 3;
+        
+        // Ensure elements still exist
+        if (!imageElements[currentPos] || !imageElements[nextPos] || !imageElements[thirdPos]) {
+          console.warn("Image elements missing, crossfade halted");
+          clearInterval(window.currentBackgroundInterval);
+          return;
+        }
+        
+        // Current visible image
+        const currentElement = imageElements[currentPos];
+        
+        // Next image to fade in
+        const nextElement = imageElements[nextPos];
+        
+        // Third element to prepare
+        const thirdElement = imageElements[thirdPos];
+        
+        // Get the next image index
+        currentImageIndex = (Number.parseInt(currentElement.dataset.imageIndex) + 1) % backgroundImages.length;
+        const nextImageIndex = (currentImageIndex + 1) % backgroundImages.length;
+        
+        // Preload the next image in advance
+        const nextNextImage = new Image();
+        nextNextImage.src = backgroundImages[nextImageIndex];
+        
+        // Update the third element with the next image
+        thirdElement.style.opacity = '0';
+        thirdElement.style.backgroundImage = `url('${backgroundImages[nextImageIndex]}')`;
+        thirdElement.dataset.imageIndex = nextImageIndex.toString();
+        
+        // Log the transition
+        console.log(`Starting crossfade to: ${backgroundImages[currentImageIndex]}`);
+        
+        // Begin crossfade
+        nextElement.style.backgroundImage = `url('${backgroundImages[currentImageIndex]}')`;
+        nextElement.dataset.imageIndex = currentImageIndex.toString();
+        nextElement.style.zIndex = '2';
+        currentElement.style.zIndex = '1';
+        
+        // Ensure the third element is behind both
+        thirdElement.style.zIndex = '0';
+        
+        // Start the actual fade
+        nextElement.style.opacity = '1';
+        currentElement.style.opacity = '0';
+        
+        // Update tracking
+        activeIndex = nextPos;
+      } catch (error) {
+        console.error("Error during image crossfade:", error);
+        // Don't stop the interval - try again next time
+      }
     };
     
     // Start the crossfades with pattern: stay still for 10 seconds, then transition over 4 seconds
@@ -285,10 +335,16 @@ async function setImageBackground() {
   }
 }
 
-// Enhanced video background implementation
+// For video background: Enhance error handling and prevent stops
 async function setVideoBackground() {
   try {
     console.log("Starting video background setup");
+    
+    // Clear any existing interval first
+    if (window.currentBackgroundInterval) {
+      clearInterval(window.currentBackgroundInterval);
+      window.currentBackgroundInterval = null;
+    }
     
     // Get video speed preference or default to normal
     const speedPreference = localStorage.getItem(VIDEO_SPEED_PREF_KEY) || 'normal';
@@ -312,24 +368,29 @@ async function setVideoBackground() {
     
     // If this is the first time, fetch the video list
     if (backgroundVideos.length === 0) {
-      // Fetch the list of background videos from JSON file
-      const response = await fetch('videos/list.json');
-      if (!response.ok) {
-        throw new Error(`Failed to fetch video list: ${response.status} ${response.statusText}`);
+      try {
+        // Fetch the list of background videos from JSON file
+        const response = await fetch('videos/list.json');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch video list: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        const videoList = data.videos || [];
+        
+        // Update our backgroundVideos array with the fetched videos
+        backgroundVideos.length = 0; // Clear the array
+        backgroundVideos.push(...videoList); // Add all videos from JSON
+        
+        if (videoList.length === 0) {
+          throw new Error('No background videos found in the JSON file');
+        }
+        
+        console.log(`Loaded ${videoList.length} videos from list.json`);
+      } catch (error) {
+        console.error('Error loading video list:', error);
+        throw error;
       }
-      
-      const data = await response.json();
-      const videoList = data.videos || [];
-      
-      // Update our backgroundVideos array with the fetched videos
-      backgroundVideos.length = 0; // Clear the array
-      backgroundVideos.push(...videoList); // Add all videos from JSON
-      
-      if (videoList.length === 0) {
-        throw new Error('No background videos found in the JSON file');
-      }
-      
-      console.log(`Loaded ${videoList.length} videos from list.json`);
     }
     
     // Make sure we have videos to work with
@@ -543,186 +604,271 @@ async function setVideoBackground() {
     
     // Function to handle transition to next video
     function handleVideoEnd() {
-      // Increment the played video counter
-      playedVideoCount++;
-      
-      // If we already started transition, just do cleanup
-      if (transitionStarted) {
-        console.log('Video ended, completing transition that started early');
-      } else {
-        console.log('Video ended, starting transition');
+      try {
+        // Increment the played video counter
+        playedVideoCount++;
         
-        // Start playing the next video
-        const playPromise = nextVideo.play();
-        
-        if (playPromise !== undefined) {
-          playPromise.then(() => {
-            console.log('Next video started playing');
-            
-            // Fade out the current video and fade in the next video
-            mainVideo.style.opacity = '0';
-            nextVideo.style.opacity = '1';
-          }).catch(error => {
-            console.error('Error playing next video:', error);
-            // Try with explicit muted attribute which helps with autoplay
-            nextVideo.muted = true;
-            nextVideo.play().catch(err => {
-              console.error('Failed to play even with muted attribute:', err);
-              
-              // If we have an end image for the current video, show it
-              if (currentVideoObj.endImage) {
-                // Create an image element with the end image
-                const endImageElement = document.createElement('div');
-                endImageElement.style.position = 'absolute';
-                endImageElement.style.top = '0';
-                endImageElement.style.left = '0';
-                endImageElement.style.width = '100%';
-                endImageElement.style.height = '100%';
-                endImageElement.style.backgroundImage = `url('${currentVideoObj.endImage}')`;
-                endImageElement.style.backgroundSize = 'cover';
-                endImageElement.style.backgroundPosition = 'center';
-                endImageElement.style.zIndex = '1';
-                
-                // Add to container
-                container.appendChild(endImageElement);
-                console.log(`Showing end image ${currentVideoObj.endImage} as fallback`);
-                
-                // Remove after a delay and restart the video sequence
-                setTimeout(() => {
-                  if (endImageElement.parentNode) {
-                    endImageElement.parentNode.removeChild(endImageElement);
-                  }
-                  setVideoBackground(); // Restart with a new random video
-                }, 3000);
-              } else {
-                // Restart with a new random video if no end image
-                setVideoBackground();
-              }
-              return;
-            });
-          });
-        }
-      }
-      
-      // After transition begins, prepare for the next cycle
-      // Use setTimeout to ensure the transition has time to complete visually
-      setTimeout(() => {
-        // Determine the next video selection strategy
-        let newNextVideoObj;
-        
-        // After playing all videos in the list at least once, we can introduce more randomness
-        // or continue with the transition-based approach
-        if (playedVideoCount >= backgroundVideos.length) {
-          // We've played through at least one complete cycle
-          console.log(`Completed ${playedVideoCount} videos (at least one full cycle)`);
-          
-          // 30% chance to pick a completely random video
-          if (Math.random() < 0.3) {
-            // Pick any random video that's not the current one
-            const availableVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
-            if (availableVideos.length > 0) {
-              const randomIdx = Math.floor(Math.random() * availableVideos.length);
-              newNextVideoObj = availableVideos[randomIdx];
-              console.log(`Selecting random video for variety: ${newNextVideoObj.file}`);
-            } else {
-              // Only one video available, reuse it
-              newNextVideoObj = nextVideoObj;
-              console.log(`Only one video available, reusing: ${newNextVideoObj.file}`);
-            }
-          } else {
-            // Try to find a video with a matching transition
-            const matchingVideos = backgroundVideos.filter(v => 
-              v.startImage === nextVideoObj.endImage && v.file !== nextVideoObj.file
-            );
-            
-            if (matchingVideos.length > 0) {
-              // Choose one of the matching videos randomly
-              const matchIdx = Math.floor(Math.random() * matchingVideos.length);
-              newNextVideoObj = matchingVideos[matchIdx];
-              console.log(`Found ${matchingVideos.length} videos with matching transitions, using: ${newNextVideoObj.file}`);
-            } else {
-              // No matching transitions, choose another random video
-              const otherVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
-              if (otherVideos.length > 0) {
-                const otherIdx = Math.floor(Math.random() * otherVideos.length);
-                newNextVideoObj = otherVideos[otherIdx];
-                console.log(`No matching transitions found, using random next video: ${newNextVideoObj.file}`);
-              } else {
-                // If there are no other videos, reuse the current one
-                newNextVideoObj = nextVideoObj;
-                console.log(`No other videos available, reusing current video: ${newNextVideoObj.file}`);
-              }
-            }
-          }
+        // If we already started transition, just do cleanup
+        if (transitionStarted) {
+          console.log('Video ended, completing transition that started early');
         } else {
-          // We're still in the first cycle, try to find matching transitions
-          const matchingVideos = backgroundVideos.filter(v => 
-            v.startImage === nextVideoObj.endImage && v.file !== nextVideoObj.file
-          );
+          console.log('Video ended, starting transition');
           
-          if (matchingVideos.length > 0) {
-            // Choose one of the matching videos randomly
-            const matchIdx = Math.floor(Math.random() * matchingVideos.length);
-            newNextVideoObj = matchingVideos[matchIdx];
-            console.log(`Found ${matchingVideos.length} videos with matching transitions, using: ${newNextVideoObj.file}`);
-          } else {
-            // No matching transitions, choose another random video
-            const otherVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
-            if (otherVideos.length > 0) {
-              const otherIdx = Math.floor(Math.random() * otherVideos.length);
-              newNextVideoObj = otherVideos[otherIdx];
-              console.log(`No matching transitions found, using random next video: ${newNextVideoObj.file}`);
-            } else {
-              // If there are no other videos, reuse the current one
-              newNextVideoObj = nextVideoObj;
-              console.log(`No other videos available, reusing current video: ${newNextVideoObj.file}`);
-            }
+          // Start playing the next video
+          const playPromise = nextVideo.play();
+          
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              console.log('Next video started playing');
+              
+              // Fade out the current video and fade in the next video
+              mainVideo.style.opacity = '0';
+              nextVideo.style.opacity = '1';
+            }).catch(error => {
+              console.error('Error playing next video:', error);
+              // Try with explicit muted attribute which helps with autoplay
+              nextVideo.muted = true;
+              nextVideo.play().catch(err => {
+                console.error('Failed to play even with muted attribute:', err);
+                
+                // If we have an end image for the current video, show it
+                if (currentVideoObj.endImage) {
+                  showFallbackAndRestart(currentVideoObj.endImage);
+                } else {
+                  // Restart with a new random video if no end image
+                  setVideoBackground();
+                }
+                return;
+              });
+            });
           }
         }
         
-        // Create a new video element that will be used in the next transition
-        const newNextVideo = document.createElement('video');
-        newNextVideo.style.position = 'absolute';
-        newNextVideo.style.top = '50%';
-        newNextVideo.style.left = '50%';
-        newNextVideo.style.transform = 'translate(-50%, -50%)';
-        newNextVideo.style.minWidth = '100%';
-        newNextVideo.style.minHeight = '100%';
-        newNextVideo.style.width = 'auto';
-        newNextVideo.style.height = 'auto';
-        newNextVideo.style.objectFit = 'cover';
-        newNextVideo.style.opacity = '0';
-        newNextVideo.style.transition = 'opacity 1s ease-in-out';
-        newNextVideo.style.zIndex = '2';
-        newNextVideo.muted = true;
-        newNextVideo.playsInline = true;
-        newNextVideo.playbackRate = playbackRate; // Set initial playback rate
-        newNextVideo.src = newNextVideoObj.file;
-        newNextVideo.load(); // Preload it
+        // After transition begins, prepare for the next cycle
+        // Use setTimeout to ensure the transition has time to complete visually
+        setTimeout(() => {
+          try {
+            // Determine the next video selection strategy
+            let newNextVideoObj;
+            
+            // After playing all videos in the list at least once, we can introduce more randomness
+            // or continue with the transition-based approach
+            if (playedVideoCount >= backgroundVideos.length) {
+              // We've played through at least one complete cycle
+              console.log(`Completed ${playedVideoCount} videos (at least one full cycle)`);
+              
+              // 30% chance to pick a completely random video
+              if (Math.random() < 0.3) {
+                // Pick any random video that's not the current one
+                const availableVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
+                if (availableVideos.length > 0) {
+                  const randomIdx = Math.floor(Math.random() * availableVideos.length);
+                  newNextVideoObj = availableVideos[randomIdx];
+                  console.log(`Selecting random video for variety: ${newNextVideoObj.file}`);
+                } else {
+                  // Only one video available, reuse it
+                  newNextVideoObj = nextVideoObj;
+                  console.log(`Only one video available, reusing: ${newNextVideoObj.file}`);
+                }
+              } else {
+                // Try to find a video with a matching transition
+                const matchingVideos = backgroundVideos.filter(v => 
+                  v.startImage === nextVideoObj.endImage && v.file !== nextVideoObj.file
+                );
+                
+                if (matchingVideos.length > 0) {
+                  // Choose one of the matching videos randomly
+                  const matchIdx = Math.floor(Math.random() * matchingVideos.length);
+                  newNextVideoObj = matchingVideos[matchIdx];
+                  console.log(`Found ${matchingVideos.length} videos with matching transitions, using: ${newNextVideoObj.file}`);
+                } else {
+                  // No matching transitions, choose another random video
+                  const otherVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
+                  if (otherVideos.length > 0) {
+                    const otherIdx = Math.floor(Math.random() * otherVideos.length);
+                    newNextVideoObj = otherVideos[otherIdx];
+                    console.log(`No matching transitions found, using random next video: ${newNextVideoObj.file}`);
+                  } else {
+                    // If there are no other videos, reuse the current one
+                    newNextVideoObj = nextVideoObj;
+                    console.log(`No other videos available, reusing current video: ${newNextVideoObj.file}`);
+                  }
+                }
+              }
+            } else {
+              // We're still in the first cycle, try to find matching transitions
+              const matchingVideos = backgroundVideos.filter(v => 
+                v.startImage === nextVideoObj.endImage && v.file !== nextVideoObj.file
+              );
+              
+              if (matchingVideos.length > 0) {
+                // Choose one of the matching videos randomly
+                const matchIdx = Math.floor(Math.random() * matchingVideos.length);
+                newNextVideoObj = matchingVideos[matchIdx];
+                console.log(`Found ${matchingVideos.length} videos with matching transitions, using: ${newNextVideoObj.file}`);
+              } else {
+                // No matching transitions, choose another random video
+                const otherVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
+                if (otherVideos.length > 0) {
+                  const otherIdx = Math.floor(Math.random() * otherVideos.length);
+                  newNextVideoObj = otherVideos[otherIdx];
+                  console.log(`No matching transitions found, using random next video: ${newNextVideoObj.file}`);
+                } else {
+                  // If there are no other videos, reuse the current one
+                  newNextVideoObj = nextVideoObj;
+                  console.log(`No other videos available, reusing current video: ${newNextVideoObj.file}`);
+                }
+              }
+            }
+            
+            // Create a new video element that will be used in the next transition
+            const newNextVideo = document.createElement('video');
+            newNextVideo.style.position = 'absolute';
+            newNextVideo.style.top = '50%';
+            newNextVideo.style.left = '50%';
+            newNextVideo.style.transform = 'translate(-50%, -50%)';
+            newNextVideo.style.minWidth = '100%';
+            newNextVideo.style.minHeight = '100%';
+            newNextVideo.style.width = 'auto';
+            newNextVideo.style.height = 'auto';
+            newNextVideo.style.objectFit = 'cover';
+            newNextVideo.style.opacity = '0';
+            newNextVideo.style.transition = 'opacity 1s ease-in-out';
+            newNextVideo.style.zIndex = '2';
+            newNextVideo.muted = true;
+            newNextVideo.playsInline = true;
+            newNextVideo.playbackRate = playbackRate; // Set initial playback rate
+            newNextVideo.src = newNextVideoObj.file;
+            newNextVideo.load(); // Preload it
+            
+            // Add error handling for the new next video
+            newNextVideo.addEventListener('error', (e) => {
+              console.error(`Error loading next video ${newNextVideoObj.file}:`, e);
+              // Try another video instead
+              const fallbackVideo = backgroundVideos.find(v => v.file !== newNextVideoObj.file && v.file !== currentVideoObj.file);
+              if (fallbackVideo) {
+                console.log(`Attempting fallback to: ${fallbackVideo.file}`);
+                newNextVideo.src = fallbackVideo.file;
+                newNextVideoObj = fallbackVideo;
+                newNextVideo.load();
+              }
+            });
+            
+            // Add event listeners for playback rate
+            newNextVideo.addEventListener('loadeddata', () => {
+              newNextVideo.playbackRate = playbackRate;
+              console.log(`Set new next video playback rate to ${playbackRate}x`);
+            });
+            
+            newNextVideo.addEventListener('play', () => {
+              if (newNextVideo.playbackRate !== playbackRate) {
+                newNextVideo.playbackRate = playbackRate;
+              }
+            });
+            
+            newNextVideo.addEventListener('ratechange', () => {
+              if (newNextVideo.playbackRate !== playbackRate) {
+                setTimeout(() => { newNextVideo.playbackRate = playbackRate; }, 0);
+              }
+            });
+            
+            // Add to container
+            container.appendChild(newNextVideo);
+            
+            console.log(`Prepared next video: ${newNextVideoObj.file}`);
+            
+            // Remove the old video element (previous mainVideo)
+            safeRemoveEventListener(mainVideo, 'ended', handleVideoEnd);
+            safeRemoveEventListener(mainVideo, 'timeupdate', timeUpdateHandler);
+            
+            // Safe removal to prevent errors
+            if (mainVideo.parentNode) {
+              mainVideo.parentNode.removeChild(mainVideo);
+            }
+            
+            // Update references for next cycle
+            mainVideo = nextVideo;
+            nextVideo = newNextVideo;
+            currentVideoObj = nextVideoObj;
+            nextVideoObj = newNextVideoObj;
+            
+            // Reset transition flag
+            transitionStarted = false;
+            
+            // Set up event listeners for the new main video
+            safeAddEventListener(mainVideo, 'ended', handleVideoEnd);
+            safeAddEventListener(mainVideo, 'timeupdate', timeUpdateHandler);
+          } catch (cycleError) {
+            console.error('Error preparing next video cycle:', cycleError);
+            // Try to restart the background 
+            showFallbackAndRestart();
+          }
+        }, 1000); // Wait for the crossfade to complete
+      } catch (handlerError) {
+        console.error('Critical error in handleVideoEnd:', handlerError);
+        // Last resort fallback
+        showFallbackAndRestart();
+      }
+    }
+    
+    // Helper function to safely remove event listeners
+    function safeRemoveEventListener(element, event, handler) {
+      try {
+        if (element) {
+          element.removeEventListener(event, handler);
+        }
+      } catch (e) {
+        console.warn(`Error removing ${event} event listener:`, e);
+      }
+    }
+    
+    // Helper function to safely add event listeners
+    function safeAddEventListener(element, event, handler) {
+      try {
+        if (element) {
+          element.addEventListener(event, handler);
+        }
+      } catch (e) {
+        console.warn(`Error adding ${event} event listener:`, e);
+      }
+    }
+    
+    // Helper function to show fallback and restart
+    function showFallbackAndRestart(fallbackImageSrc) {
+      try {
+        // Create an image element with the fallback image
+        const fallbackImage = document.createElement('div');
+        fallbackImage.style.position = 'absolute';
+        fallbackImage.style.top = '0';
+        fallbackImage.style.left = '0';
+        fallbackImage.style.width = '100%';
+        fallbackImage.style.height = '100%';
+        fallbackImage.style.backgroundImage = fallbackImageSrc ? 
+          `url('${fallbackImageSrc}')` : 
+          `url('${backgroundVideos[0].startImage || 'images/01.png'}')`;
+        fallbackImage.style.backgroundSize = 'cover';
+        fallbackImage.style.backgroundPosition = 'center';
+        fallbackImage.style.zIndex = '10'; // On top
         
-        // Add to container
-        container.appendChild(newNextVideo);
+        // Add to container if it exists
+        const container = document.querySelector('#background-video-container');
+        if (container) {
+          container.appendChild(fallbackImage);
+          console.log('Showing fallback image before restart');
+        }
         
-        console.log(`Prepared next video: ${newNextVideoObj.file}`);
-        
-        // Remove the old video element (previous mainVideo)
-        mainVideo.removeEventListener('ended', handleVideoEnd);
-        mainVideo.removeEventListener('timeupdate', timeUpdateHandler);
-        container.removeChild(mainVideo);
-        
-        // Update references for next cycle
-        mainVideo = nextVideo;
-        nextVideo = newNextVideo;
-        currentVideoObj = nextVideoObj;
-        nextVideoObj = newNextVideoObj;
-        
-        // Reset transition flag
-        transitionStarted = false;
-        
-        // Set up event listeners for the new main video
-        mainVideo.addEventListener('ended', handleVideoEnd);
-        mainVideo.addEventListener('timeupdate', timeUpdateHandler);
-      }, 1000); // Wait for the crossfade to complete
+        // Restart after a delay
+        setTimeout(() => {
+          if (container) {
+            container.innerHTML = ''; // Clear everything
+          }
+          setVideoBackground(); // Full restart
+        }, 2000);
+      } catch (fallbackError) {
+        console.error('Error in fallback:', fallbackError);
+        // Last resort - just try to restart
+        setTimeout(() => setVideoBackground(), 2000);
+      }
     }
     
     // If there's an error loading the video, try again with a different one
