@@ -1787,8 +1787,46 @@ function unfollowPlaylist(playlistId) {
                 element.classList.add("unauthenticated");
               }
               
-              // Remove playlist-visible class
-              document.body.classList.remove('playlist-visible');
+              console.log("Setting up transition sequence after token refresh");
+              
+              // Start the animation sequence with a slight delay
+              setTimeout(() => {
+                console.log("Starting animations for smooth transition after token refresh");
+                
+                // First shrink and fade the playlist container
+                const playlistSection = document.getElementById('playlist-info');
+                
+                if (playlistSection) {
+                  // Add class for fade-out animation
+                  playlistSection.classList.add('fade-out-container');
+                  
+                  // After container fades out
+                  setTimeout(() => {
+                    console.log("Playlist container faded out, starting recenter animation");
+                    
+                    // Hide the container
+                    playlistSection.style.display = 'none';
+                    playlistSection.classList.remove('fade-out-container');
+                    
+                    // Remove playlist-visible class to trigger main container transition
+                    document.body.classList.remove('playlist-visible');
+                    
+                    // Reset input field for next playlist
+                    const textarea = document.getElementById('playlist-description-input');
+                    if (textarea) {
+                      textarea.value = '';
+                      
+                      // Subtly highlight the textarea to draw attention back to it
+                      setTimeout(() => {
+                        textarea.classList.add('highlight-input');
+                        setTimeout(() => {
+                          textarea.classList.remove('highlight-input');
+                        }, 1500);
+                      }, 400); // Small delay to time highlight with recenter animation
+                    }
+                  }, 1000); // Match animation duration
+                }
+              }, 3000); // Delay before starting animation sequence
             }
           } else {
             throw new Error(`Failed to unfollow playlist after token refresh. Status: ${retryResponse.status}`);
