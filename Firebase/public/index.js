@@ -108,22 +108,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Example playlist prompts that will rotate in the textarea placeholder
 const examplePlaylists = [
-  "upbeat indie for working on a rainy day",
-  "2 hour Japanese lofi study playlist",
-  "obscure folk songs from the 2020s",
-  "best party music from South America in the last 5 years",
-  "all songs about summer",
+  "feel good songs for when the stock market crashes",
+  "my mom likes Fleetwood Mac but i'm sick of it. give me young people songs that are the same vibe",
+  "ratchet songs to piss of my next door neighbor",
+  "an electronic playlist that builds and builds for 40 minutes until i c*m in hour 40 and then it winds down for 5 minutes",
+  "lo fi songs but Japanese",
+  "k Pop that i prob don't already know",
+  "40 minutes of instrumental red hot chili peppers to workout to",
+  "new electronic songs that sample 70s funky",
   "songs that sound like Bad Bunny...but aren't",
   "angsty breakup songs from 2024",
   "songs that sound like they're from a Wes Anderson movie",
   "70s disco classics that still fill dance floors today",
-  "gentle acoustic music for reading",
-  "playlist titled 'Road Trip Vibes' with high energy songs that make you want to drive faster",
-  "songs that sample Stevie Wonder",
   "female fronted punk bands from the UK",
   "music that sounds like it belongs in a romantic comedy from the 90s",
-  "songs with incredible bass lines",
-  "Title: Workout Motivation Mix - high energy songs for a 45-minute cardio session"
+  "songs with incredible bass lines"
 ];
 
 // Background images to randomly select from
