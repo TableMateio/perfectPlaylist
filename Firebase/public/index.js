@@ -129,12 +129,10 @@ const examplePlaylists = [
 // Background images to randomly select from
 const backgroundImages = []; // Will be populated from images/list.json
 
-// Background videos to cycle through
-const backgroundVideos = []; // Will be populated from videos/list.json
-let currentVideoIndex = 0; // Track the current video index
-
-// Store the current background preference in localStorage
-const BACKGROUND_PREF_KEY = 'backgroundPreference';
+// Shared variables
+let currentVideoIndex = 0;
+const backgroundVideos = [];
+const BACKGROUND_PREF_KEY = 'perfectPlaylist_backgroundPreference';
 
 // Function to set a random background
 async function setRandomBackground() {
@@ -199,16 +197,25 @@ async function setRandomImageBackground() {
   }
 }
 
-// Function to set video backgrounds and cycle through them
+// Simple video background implementation
 async function setVideoBackground() {
   try {
-    console.log("Starting setVideoBackground setup");
+    console.log("Starting video background setup");
     
     // Hide the static background div
     const bgAppElement = document.querySelector('.bg-app');
     if (bgAppElement) {
       bgAppElement.style.display = 'none';
     }
+    
+    // Clear and prepare the container
+    const container = document.querySelector('#background-video-container');
+    if (!container) {
+      throw new Error('Video container not found');
+    }
+    
+    // Clear any existing content
+    container.innerHTML = '';
     
     // If this is the first time, fetch the video list
     if (backgroundVideos.length === 0) {
@@ -237,77 +244,125 @@ async function setVideoBackground() {
       throw new Error('No background videos available');
     }
     
-    // Initialize Bideo.js
-    const bideo = new Bideo();
+    // Create the main video element
+    const mainVideo = document.createElement('video');
+    mainVideo.style.position = 'absolute';
+    mainVideo.style.top = '50%';
+    mainVideo.style.left = '50%';
+    mainVideo.style.transform = 'translate(-50%, -50%)';
+    mainVideo.style.minWidth = '100%';
+    mainVideo.style.minHeight = '100%';
+    mainVideo.style.width = 'auto';
+    mainVideo.style.height = 'auto';
+    mainVideo.style.objectFit = 'cover';
+    mainVideo.style.opacity = '0';
+    mainVideo.style.transition = 'opacity 1s ease-in-out';
+    mainVideo.autoplay = true;
+    mainVideo.muted = true;
+    mainVideo.playsInline = true;
     
-    // Get the container element
-    const container = document.querySelector('#background-video-container');
+    // Get source for the current video
+    const videoSrc = backgroundVideos[currentVideoIndex];
+    mainVideo.src = videoSrc;
     
-    // Make sure container is properly styled for full coverage
-    container.style.position = 'fixed';
-    container.style.top = '0';
-    container.style.left = '0';
-    container.style.width = '100%';
-    container.style.height = '100%';
-    container.style.zIndex = '-2';
-    container.style.overflow = 'hidden';
+    // Add to container
+    container.appendChild(mainVideo);
     
-    // Setup Bideo
-    bideo.init({
-      // Video element
-      videoEl: document.createElement('video'),
-      
-      // Container element
-      container: container,
-      
-      // Resize to fill parent element
-      resize: true,
-      
-      // Automatically play
-      autoplay: true,
-      
-      // Loop video
-      loop: false, // We'll handle looping manually to cycle through videos
-      
-      // Keep it muted for autoplay
-      isMobile: true, // This forces muting
-      
-      // Array of videos to cycle through
-      src: backgroundVideos.map(src => {
-        return { 
-          src: src, 
-          type: 'video/mp4'
-        };
-      }),
-      
-      // Start with first video
-      startAt: 0,
-      
-      // Fade in duration
-      fadeInDuration: 1000,
-      
-      // Called when video is loaded and ready
-      onLoad: () => {
-        console.log('Video loaded, ready to play');
-        // Fix the selector to match what Bideo.js creates
-        const videoElement = container.querySelector('video');
-        if (videoElement) {
-          videoElement.style.opacity = 1;
-        }
-      },
-      
-      // Called when current video ends
-      onEnd: () => {
-        // Update index for next video
-        currentVideoIndex = (currentVideoIndex + 1) % backgroundVideos.length;
-        console.log(`Current video ended, switching to video ${currentVideoIndex + 1}/${backgroundVideos.length}`);
-        
-        // Play the next video with crossfade
-        bideo.switchVideo(currentVideoIndex, 1000);
-      }
+    // Create a next video element for seamless transitions
+    const nextVideo = document.createElement('video');
+    nextVideo.style.position = 'absolute';
+    nextVideo.style.top = '50%';
+    nextVideo.style.left = '50%';
+    nextVideo.style.transform = 'translate(-50%, -50%)';
+    nextVideo.style.minWidth = '100%';
+    nextVideo.style.minHeight = '100%';
+    nextVideo.style.width = 'auto';
+    nextVideo.style.height = 'auto';
+    nextVideo.style.objectFit = 'cover';
+    nextVideo.style.opacity = '0';
+    nextVideo.style.transition = 'opacity 1s ease-in-out';
+    nextVideo.muted = true;
+    nextVideo.playsInline = true;
+    
+    // Calculate next video index
+    const nextVideoIndex = (currentVideoIndex + 1) % backgroundVideos.length;
+    nextVideo.src = backgroundVideos[nextVideoIndex];
+    nextVideo.load(); // Preload the next video
+    
+    // Add to container
+    container.appendChild(nextVideo);
+    
+    console.log(`Setup main video ${currentVideoIndex + 1}/${backgroundVideos.length}: ${videoSrc}`);
+    console.log(`Preloaded next video ${nextVideoIndex + 1}/${backgroundVideos.length}: ${backgroundVideos[nextVideoIndex]}`);
+    
+    // Handle main video loading and playback
+    mainVideo.addEventListener('loadeddata', () => {
+      console.log('Main video loaded and ready to play, duration:', mainVideo.duration);
+      // Show the video with a fade in
+      setTimeout(() => {
+        mainVideo.style.opacity = '1';
+      }, 100);
     });
     
-    console.log('Bideo.js initialized with videos:', backgroundVideos);
+    // Handle main video end
+    mainVideo.addEventListener('ended', handleVideoEnd);
+    
+    // Function to handle transition to next video
+    function handleVideoEnd() {
+      console.log(`Video ${currentVideoIndex + 1} ended, transitioning to next video`);
+      
+      // Start playing the next video
+      const playPromise = nextVideo.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          console.log('Next video started playing');
+          
+          // Fade out the current video and fade in the next video
+          mainVideo.style.opacity = '0';
+          nextVideo.style.opacity = '1';
+          
+          // After the transition is complete, set up for the next cycle
+          setTimeout(() => {
+            // Update the index
+            currentVideoIndex = nextVideoIndex;
+            
+            // Remove the old video element
+            mainVideo.removeEventListener('ended', handleVideoEnd);
+            container.removeChild(mainVideo);
+            
+            // Start a new cycle
+            setVideoBackground();
+          }, 1000); // Wait for the crossfade to complete
+        }).catch(error => {
+          console.error('Error playing next video:', error);
+          // Try with explicit muted attribute which helps with autoplay
+          nextVideo.muted = true;
+          nextVideo.play().catch(err => {
+            console.error('Failed to play even with muted attribute:', err);
+            setRandomImageBackground(); // Fall back to image
+          });
+        });
+      }
+    }
+    
+    // Start playing the main video
+    const playPromise = mainVideo.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(error => {
+        console.error('Error playing main video:', error);
+        
+        // Try with muted attribute which helps with autoplay
+        mainVideo.muted = true;
+        mainVideo.play().catch(err => {
+          console.error('Failed to play even with muted attribute:', err);
+          setRandomImageBackground(); // Fall back to image
+        });
+      });
+    }
+    
+    console.log('Video background initialized with videos:', backgroundVideos);
+    
   } catch (error) {
     console.error('Error in video background setup:', error);
     // Fall back to image background
