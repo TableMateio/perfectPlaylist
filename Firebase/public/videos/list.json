@@ -1,6 +1,14 @@
 {
   "videos": [
-    "videos/01.mp4",
-    "videos/02.mp4"
+    {
+      "file": "videos/01.mp4",
+      "startImage": "images/07.png",
+      "endImage": "images/10.png"
+    },
+    {
+      "file": "videos/02.mp4",
+      "startImage": "images/10.png",
+      "endImage": "images/14.png"
+    }
   ]
 }
