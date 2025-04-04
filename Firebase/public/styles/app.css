@@ -6,34 +6,30 @@ html, body {
   padding: 0;
   overflow-x: hidden;
   overflow-y: auto !important; /* Force vertical scrolling */
-  position: relative;
 }
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background-color: #191414;
+  background: linear-gradient(135deg, #121212 0%, #181818 50%, #1E1E1E 100%);
   color: #fff;
   position: relative;
-  z-index: 1;
   min-height: 100vh; /* Ensure body is at least viewport height */
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
 }
 
 .bg-app {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  min-height: 100vh;
   background: linear-gradient(135deg, #121212 0%, #181818 50%, #1E1E1E 100%);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  transition: background-image 0.5s ease-in-out;
-  z-index: 5;
+  z-index: -1; /* Push background behind content */
+  overflow: hidden;
 }
 
 .bg-app::before {
@@ -44,7 +40,7 @@ body {
   right: 0;
   bottom: 0;
   background: radial-gradient(circle at 20% 20%, rgba(29, 185, 84, 0.15) 0%, rgba(0, 0, 0, 0) 60%);
-  z-index: 6;
+  z-index: 1;
   pointer-events: none;
 }
 
@@ -56,7 +52,7 @@ body {
   right: 0;
   bottom: 0;
   background: radial-gradient(circle at 80% 80%, rgba(30, 215, 96, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
-  z-index: 7;
+  z-index: 2;
   pointer-events: none;
 }
 
@@ -66,23 +62,18 @@ body {
   width: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start; /* Start from the top, not center */
+  justify-content: center; /* Center content vertically */
   align-items: center;
-  padding: 1rem;
-  padding-top: 2rem;
-  padding-bottom: 4rem; /* Extra padding at bottom for mobile */
+  padding: 2rem 1rem;
   box-sizing: border-box;
   position: relative;
-  z-index: 10;
-  overflow-y: auto; /* Allow vertical scrolling */
-  margin: 0 auto;
 }
 
-/* Profile info (fixed position but not blocking scroll) */
+/* Profile info */
 #profile-info {
-  position: absolute;
-  top: 4px;
-  right: 4px;
+  position: fixed;
+  top: 12px;
+  right: 12px;
   z-index: 100;
 }
 
@@ -108,13 +99,29 @@ body {
     flex-direction: column;
     align-items: center;
     gap: 20px;
-    padding-bottom: 70px; /* Extra padding at bottom for mobile */
-    max-width: 95%;
+    padding-bottom: 4rem;
+    width: 96%;
+    margin-left: auto;
+    margin-right: auto;
   }
   
   .input-section, .output-section {
     max-width: 100%;
     width: 100%;
+  }
+  
+  .input-section.shifted {
+    transform: translateY(-5px);
+    opacity: 0.9;
+  }
+  
+  .output-section {
+    transform: translateY(0);
+  }
+  
+  .output-section.visible {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 
@@ -533,31 +540,6 @@ p.text-xl {
   }
 }
 
-@media (max-width: 960px) {
-  .app-container {
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-  }
-  
-  .input-section, .output-section {
-    max-width: 100%;
-    width: 100%;
-  }
-  
-  .input-section.shifted {
-    transform: translateY(-5%);
-  }
-  
-  .output-section {
-    transform: translateY(10%);
-  }
-  
-  .output-section.visible {
-    transform: translateY(0);
-  }
-}
-
 @media (max-width: 640px) {
   .app-container {
     padding: 0 10px;
@@ -626,14 +608,20 @@ p.text-xl {
   }
   
   .flex.flex-col.items-center.justify-center.h-full {
-    padding-top: 1.5rem;
-    padding-bottom: 5rem;
-    height: auto !important; /* Override height constraints */
+    justify-content: center; /* Ensure centering on mobile */
+    padding: 2rem 1rem 4rem;
+    display: flex;
     min-height: 100vh;
+    width: 100%;
   }
   
   h1.text-5xl {
     font-size: 2.5rem !important; /* Smaller heading on mobile */
+  }
+  
+  .app-container {
+    margin-top: 1.5rem;
+    width: 100%;
   }
   
   .playlist-textarea {
