@@ -10,8 +10,8 @@ html, body {
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background-color: #000;
-  color: #fff;
+  background-color: #f5f5f5;
+  color: #333;
   position: relative;
   z-index: 1;
   min-height: 100vh; /* Ensure body is at least viewport height */
@@ -25,7 +25,7 @@ body {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: linear-gradient(135deg, #121212 0%, #181818 50%, #1E1E1E 100%);
+  background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 50%, #f0f0f0 100%);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -41,7 +41,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at 20% 20%, rgba(29, 185, 84, 0.15) 0%, rgba(0, 0, 0, 0) 60%);
+  background: radial-gradient(circle at 20% 20%, rgba(29, 185, 84, 0.1) 0%, rgba(255, 255, 255, 0) 60%);
   z-index: 6;
   pointer-events: none;
 }
@@ -53,7 +53,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at 80% 80%, rgba(30, 215, 96, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
+  background: radial-gradient(circle at 80% 80%, rgba(30, 215, 96, 0.05) 0%, rgba(255, 255, 255, 0) 70%);
   z-index: 7;
   pointer-events: none;
 }
@@ -179,20 +179,20 @@ body {
 
 /* Make sure the textarea is responsive and clickable */
 .playlist-textarea {
-  background-color: rgba(30, 30, 30, 0.7);
+  background-color: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-radius: 0.5rem;
-  border: 1px solid rgba(50, 50, 50, 0.5);
+  border: 1px solid rgba(200, 200, 200, 0.5);
   padding: 1rem;
   font-size: 1.1rem;
   width: 100% !important;
   max-width: 100% !important;
   height: 180px;
   margin-top: 0.75rem;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
-  color: #ffffff;
+  color: #333333;
   position: relative;
   z-index: 50 !important;
   pointer-events: auto !important;
@@ -205,15 +205,15 @@ body {
 }
 
 .playlist-textarea::placeholder {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(80, 80, 80, 0.6);
   font-weight: 300;
 }
 
 .playlist-textarea:focus {
   outline: none;
-  box-shadow: 0 4px 20px rgba(29, 185, 84, 0.4);
-  border: 1px solid rgba(29, 185, 84, 0.7);
-  background-color: rgba(40, 40, 40, 0.8);
+  box-shadow: 0 4px 20px rgba(29, 185, 84, 0.3);
+  border: 1px solid rgba(29, 185, 84, 0.6);
+  background-color: rgba(255, 255, 255, 0.9);
   z-index: 100 !important;
 }
 
