@@ -280,14 +280,14 @@ async function setVideoBackground() {
     mainVideo.src = currentVideoSrc;
     mainVideo.style.display = 'block';
     mainVideo.style.opacity = '1';
-    mainVideo.style.transition = 'opacity 0.3s ease-in-out';
+    mainVideo.style.transition = 'opacity 1s ease-in-out';
     
     // Preload the next video but keep it hidden
     nextVideo.src = nextVideoSrc;
     nextVideo.preload = 'auto'; // Ensure it preloads
     nextVideo.style.display = 'block'; // Need display:block to preload properly
     nextVideo.style.opacity = '0';
-    nextVideo.style.transition = 'opacity 0.3s ease-in-out';
+    nextVideo.style.transition = 'opacity 1s ease-in-out';
     nextVideo.muted = true; // Mute to avoid autoplay issues
     nextVideo.currentTime = 0; // Reset to beginning
     
@@ -318,8 +318,8 @@ async function setVideoBackground() {
       // Check if we're near the end of the video
       const timeRemaining = mainVideo.duration - mainVideo.currentTime;
       
-      // Start crossfade 0.3 seconds before the end
-      if (timeRemaining <= 0.3 && mainVideo.duration > 0 && !fadeStarted) {
+      // Start crossfade 1 second before the end
+      if (timeRemaining <= 1.0 && mainVideo.duration > 0 && !fadeStarted) {
         fadeStarted = true;
         console.log(`Starting crossfade with ${timeRemaining.toFixed(2)}s remaining`);
         
