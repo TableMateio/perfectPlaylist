@@ -129,8 +129,9 @@ const examplePlaylists = [
 // Background images to randomly select from
 const backgroundImages = []; // Will be populated from images/list.json
 
-// Background videos to randomly select from
+// Background videos to cycle through
 const backgroundVideos = []; // Will be populated from videos/list.json
+let currentVideoIndex = 0; // Track the current video index
 
 // Store the current background preference in localStorage
 const BACKGROUND_PREF_KEY = 'backgroundPreference';
@@ -141,7 +142,7 @@ async function setRandomBackground() {
   const useVideo = localStorage.getItem(BACKGROUND_PREF_KEY) === 'video';
   
   if (useVideo) {
-    await setRandomVideoBackground();
+    await setVideoBackground();
   } else {
     await setRandomImageBackground();
   }
@@ -198,8 +199,8 @@ async function setRandomImageBackground() {
   }
 }
 
-// Function to set a random video background
-async function setRandomVideoBackground() {
+// Function to set video backgrounds and cycle through them
+async function setVideoBackground() {
   try {
     // Hide the static background div
     const bgAppElement = document.querySelector('.bg-app');
@@ -207,49 +208,120 @@ async function setRandomVideoBackground() {
       bgAppElement.style.display = 'none';
     }
     
-    // Get the video element
+    // Get the video elements
     const videoElement = document.querySelector('.bg-video');
-    if (!videoElement) {
-      throw new Error('No video element found');
+    const nextVideoElement = document.querySelector('.bg-video-next');
+    
+    if (!videoElement || !nextVideoElement) {
+      throw new Error('Video elements not found');
     }
     
-    // Fetch the list of background videos from JSON file
-    const response = await fetch('videos/list.json');
-    if (!response.ok) {
-      throw new Error(`Failed to fetch video list: ${response.status} ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    const videoList = data.videos || [];
-    
-    // Update our backgroundVideos array with the fetched videos
-    backgroundVideos.length = 0; // Clear the array
-    backgroundVideos.push(...videoList); // Add all videos from JSON
-    
-    if (videoList.length > 0) {
-      const randomIndex = Math.floor(Math.random() * videoList.length);
-      const selectedVideo = videoList[randomIndex];
+    // If this is the first time, fetch the video list
+    if (backgroundVideos.length === 0) {
+      // Fetch the list of background videos from JSON file
+      const response = await fetch('videos/list.json');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch video list: ${response.status} ${response.statusText}`);
+      }
       
-      // Set video source and make it visible
-      videoElement.src = selectedVideo;
+      const data = await response.json();
+      const videoList = data.videos || [];
+      
+      // Update our backgroundVideos array with the fetched videos
+      backgroundVideos.length = 0; // Clear the array
+      backgroundVideos.push(...videoList); // Add all videos from JSON
+      
+      if (videoList.length === 0) {
+        throw new Error('No background videos found in the JSON file');
+      }
+    }
+    
+    // Play the current video in the sequence
+    if (backgroundVideos.length > 0) {
+      const selectedVideo = backgroundVideos[currentVideoIndex];
+      
+      // Set up the current video element
       videoElement.style.display = 'block';
+      videoElement.style.opacity = '1';
+      
+      // Only set source if it's not already playing this video
+      if (videoElement.src !== new URL(selectedVideo, window.location.href).href) {
+        videoElement.src = selectedVideo;
+        videoElement.load();
+      }
       
       // Ensure video plays
-      videoElement.load();
       videoElement.play().catch(err => {
         console.error('Error playing video:', err);
         // Fall back to image if video fails to play
         setRandomImageBackground();
+        return;
       });
       
-      console.log(`Set background video to: ${selectedVideo}`);
+      // Calculate next video index (for preloading)
+      const nextIndex = (currentVideoIndex + 1) % backgroundVideos.length;
+      const nextVideo = backgroundVideos[nextIndex];
+      
+      // Preload the next video
+      if (nextVideoElement.src !== new URL(nextVideo, window.location.href).href) {
+        nextVideoElement.src = nextVideo;
+        nextVideoElement.load();
+        // Don't play it yet, just load it
+      }
+      
+      // Add event listener for when current video is about to end
+      videoElement.ontimeupdate = () => {
+        // When current video is 0.5 seconds from ending, start transition
+        // This gives us time for the crossfade before the video actually ends
+        if (videoElement.duration - videoElement.currentTime <= 0.6 && videoElement.duration > 0) {
+          // Remove the timeupdate listener to prevent multiple triggers
+          videoElement.ontimeupdate = null;
+          
+          // Begin crossfade to next video
+          console.log(`Transitioning from video ${currentVideoIndex + 1} to ${nextIndex + 1}`);
+          
+          // Make the next video visible but with 0 opacity
+          nextVideoElement.style.display = 'block';
+          nextVideoElement.style.opacity = '0';
+          
+          // Play the next video
+          nextVideoElement.play().catch(err => {
+            console.error('Error playing next video:', err);
+          });
+          
+          // Start crossfade animation
+          setTimeout(() => {
+            // Fade out current video
+            videoElement.style.opacity = '0';
+            // Fade in next video
+            nextVideoElement.style.opacity = '1';
+            
+            // After transition completes, swap the roles of the videos
+            setTimeout(() => {
+              // Increment the index for the next cycle
+              currentVideoIndex = nextIndex;
+              
+              // Swap the video elements (current becomes next, next becomes current)
+              [videoElement.className, nextVideoElement.className] = [nextVideoElement.className, videoElement.className];
+              
+              // Recursively call this function to set up the next transition
+              // But we use setTimeout to ensure we don't stack calls too quickly
+              setTimeout(() => {
+                setVideoBackground();
+              }, 50);
+            }, 500); // Match the transition time in CSS
+          }, 0);
+        }
+      };
+      
+      console.log(`Playing background video ${currentVideoIndex + 1}/${backgroundVideos.length}: ${selectedVideo}`);
     } else {
-      console.error('No background videos found in the JSON file');
+      console.error('No background videos found in memory');
       // Fall back to image background
       setRandomImageBackground();
     }
   } catch (error) {
-    console.error('Error setting random video background:', error);
+    console.error('Error setting video background:', error);
     // Fall back to image background
     setRandomImageBackground();
   }
@@ -272,7 +344,7 @@ function toggleBackgroundType(useVideo) {
   
   // Update the background
   if (useVideo) {
-    setRandomVideoBackground();
+    setVideoBackground();
   } else {
     setRandomImageBackground();
   }
@@ -324,7 +396,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const useVideo = localStorage.getItem(BACKGROUND_PREF_KEY) === 'video';
   if (useVideo) {
     // Call video background directly to ensure it starts properly
-    setRandomVideoBackground().catch(err => {
+    setVideoBackground().catch(err => {
       console.error("Error setting initial video background:", err);
       // Fall back to image background if video fails
       setRandomImageBackground();

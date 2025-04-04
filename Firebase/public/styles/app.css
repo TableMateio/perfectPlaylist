@@ -180,7 +180,7 @@ body {
 
 /* Add custom text color classes to control main and subtext */
 h1.text-5xl {
-  color: #0b530c;
+  color: rgb(11, 83, 12, .8);
 }
 
 p.text-xl {
@@ -189,9 +189,9 @@ p.text-xl {
 
 /* Make sure the textarea is responsive and clickable */
 .playlist-textarea {
-  background-color: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
+  background-color: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(85px);
+  -webkit-backdrop-filter: blur(85px);
   border-radius: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.6);
   padding: 1.25rem;
@@ -265,7 +265,9 @@ p.text-xl {
 }
 
 .btn {
-  background-color: #1DB954;
+  background-color: rgba(29, 185, 84, 0.92);
+  backdrop-filter: blur(85px);
+  -webkit-backdrop-filter: blur(85px);
   color: #fff;
   border: none;
   border-radius: 5rem;
@@ -661,6 +663,7 @@ p.text-xl {
     width: 50px;
     height: 50px;
     margin-bottom: 0.5rem;
+    opacity: 0.8;
   }
 }
 
@@ -708,4 +711,34 @@ p.text-xl {
   width: 100%;
   overflow: visible !important; /* Change from hidden to visible */
   position: relative; /* Ensure proper stacking */
+}
+
+/* Background video styles */
+.bg-video {
+  position: fixed;
+  top: 0;
+  left: 0;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  z-index: -2;
+  object-fit: cover;
+  display: none;
+  transition: opacity 0.5s ease-in-out;
+}
+
+/* Secondary video element for crossfade effect */
+.bg-video-next {
+  position: fixed;
+  top: 0;
+  left: 0;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  z-index: -3; /* Behind current video */
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
 } 
