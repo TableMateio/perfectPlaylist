@@ -1607,3 +1607,76 @@ function takeScreenshot() {
     }, 2000);
   });
 }
+
+// Function to show the playlist embed
+function showPlaylistEmbed(playlistId) {
+  // Add playlist-visible class to body for styling when playlist is visible
+  document.body.classList.add('playlist-visible');
+  
+  const playlistViewer = document.getElementById('playlist-viewer');
+  
+  // Clear previous content
+  playlistViewer.innerHTML = '';
+  
+  // Create the iframe
+  const iframe = document.createElement('iframe');
+  iframe.src = `https://open.spotify.com/embed/playlist/${playlistId}`;
+  iframe.allowTransparency = 'true';
+  iframe.allow = 'encrypted-media';
+  iframe.classList.add('spotify-embed');
+  
+  // Add the iframe to the viewer
+  playlistViewer.appendChild(iframe);
+  
+  // Show playlist section
+  document.getElementById('playlist-info').style.display = 'block';
+  
+  // Make sure the output section is visible
+  const outputSection = document.querySelector('.output-section');
+  outputSection.classList.add('visible');
+  
+  // Update buttons
+  const buttons = document.getElementById('playlist-buttons');
+  buttons.style.display = 'flex';
+  
+  // Set up the "Open in Spotify" button
+  const openInSpotifyBtn = document.getElementById('open-in-spotify');
+  openInSpotifyBtn.onclick = () => {
+    window.open(`https://open.spotify.com/playlist/${playlistId}`, '_blank');
+  };
+
+  // Set up the "Unfollow Playlist" button
+  const deletePlaylistBtn = document.getElementById('delete-playlist');
+  deletePlaylistBtn.onclick = () => {
+    unfollowPlaylist(playlistId);
+  };
+}
+
+// Reset the UI when needed
+function resetUI() {
+  // Remove playlist-visible class when resetting UI
+  document.body.classList.remove('playlist-visible');
+  
+  // Hide playlist info
+  document.getElementById('playlist-info').style.display = 'none';
+  
+  // Hide output section and reset its state
+  const outputSection = document.querySelector('.output-section');
+  outputSection.classList.remove('visible');
+  
+  // Reset input section
+  const inputSection = document.querySelector('.input-section');
+  inputSection.classList.remove('shifted');
+  
+  // Clear textarea
+  document.getElementById('playlist-description-input').value = '';
+}
+
+// Call resetUI at appropriate places in your code
+// For example, after unfollowing a playlist
+function unfollowPlaylist(playlistId) {
+  // ... existing unfollow code ...
+  
+  // After unfollowing, reset the UI
+  resetUI();
+}
