@@ -307,16 +307,22 @@ async function setVideoBackground() {
     // Handle main video end
     mainVideo.addEventListener('ended', handleVideoEnd);
     
+    // Variable to track if transition has started
+    let transitionStarted = false;
+    
     // Add timeupdate listener to start transition before the video ends
-    mainVideo.addEventListener('timeupdate', () => {
-      // Start crossfade when video is 80% complete rather than waiting until it ends
+    mainVideo.addEventListener('timeupdate', timeUpdateHandler);
+    
+    // Define timeupdate handler as a named function so we can remove it later
+    function timeUpdateHandler() {
+      // Start crossfade when video is near the end rather than waiting until it ends
       if (mainVideo.duration > 0 && !transitionStarted) {
-        const percentComplete = mainVideo.currentTime / mainVideo.duration;
+        const timeRemaining = mainVideo.duration - mainVideo.currentTime;
         
-        // Start transition at 80% of the video duration
-        if (percentComplete >= 0.8) {
+        // Start transition just 0.5 seconds before the end
+        if (timeRemaining <= 0.5 && timeRemaining > 0) {
           transitionStarted = true;
-          console.log(`Starting early crossfade at ${Math.round(percentComplete * 100)}% of video`);
+          console.log(`Starting early crossfade with ${timeRemaining.toFixed(2)}s remaining`);
           
           // Start playing the next video
           const playPromise = nextVideo.play();
@@ -339,10 +345,7 @@ async function setVideoBackground() {
           }
         }
       }
-    });
-    
-    // Variable to track if transition has started
-    let transitionStarted = false;
+    }
     
     // Function to handle transition to next video
     function handleVideoEnd() {
@@ -424,43 +427,6 @@ async function setVideoBackground() {
         mainVideo.addEventListener('timeupdate', timeUpdateHandler);
       }, 1000); // Wait for the crossfade to complete
     }
-    
-    // Define timeupdate handler as a named function so we can remove it later
-    function timeUpdateHandler() {
-      // Start crossfade when video is 80% complete rather than waiting until it ends
-      if (mainVideo.duration > 0 && !transitionStarted) {
-        const percentComplete = mainVideo.currentTime / mainVideo.duration;
-        
-        // Start transition at 80% of the video duration
-        if (percentComplete >= 0.8) {
-          transitionStarted = true;
-          console.log(`Starting early crossfade at ${Math.round(percentComplete * 100)}% of video`);
-          
-          // Start playing the next video
-          const playPromise = nextVideo.play();
-          
-          if (playPromise !== undefined) {
-            playPromise.then(() => {
-              console.log('Next video started playing during early crossfade');
-              
-              // Fade out the current video and fade in the next video
-              mainVideo.style.opacity = '0';
-              nextVideo.style.opacity = '1';
-              
-              // Don't remove the old video until the current one actually ends
-              // The 'ended' event will still fire and handleVideoEnd will do the cleanup
-            }).catch(error => {
-              console.error('Error playing next video during early crossfade:', error);
-              // If this fails, we'll fall back to the normal ended event handler
-              transitionStarted = false;
-            });
-          }
-        }
-      }
-    }
-    
-    // Variable to track if transition has started
-    let transitionStarted = false;
     
     // Add the timeupdate listener
     mainVideo.addEventListener('timeupdate', timeUpdateHandler);
