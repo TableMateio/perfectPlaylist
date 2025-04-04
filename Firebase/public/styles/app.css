@@ -62,7 +62,7 @@ body {
   width: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center; /* Center content vertically */
+  justify-content: flex-start; /* Changed from center to flex-start */
   align-items: center;
   padding: 2rem 1rem;
   box-sizing: border-box;
@@ -74,8 +74,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center; /* This enables vertical centering */
-  min-height: 85vh; /* Take up most of the viewport height */
+  justify-content: flex-start; /* Changed from center to flex-start */
+  min-height: auto; /* Changed from 85vh to auto */
   width: 100%;
   position: relative;
   padding: 1rem 0;
@@ -620,7 +620,7 @@ p.text-xl {
   }
   
   .flex.flex-col.items-center.justify-center.h-full {
-    justify-content: center; /* Ensure centering on mobile */
+    justify-content: flex-start; /* Changed from center to flex-start */
     padding: 2rem 1rem 4rem;
     display: flex;
     min-height: 100vh;
@@ -628,10 +628,10 @@ p.text-xl {
   }
   
   .flex.flex-col.items-center.text-center.w-full {
-    justify-content: center;
-    min-height: 85vh;
+    justify-content: flex-start; /* Changed from center to flex-start */
+    min-height: auto; /* Changed from 85vh to auto */
     padding: 0;
-    margin-top: -2rem; /* Adjust vertical position on mobile */
+    margin-top: 0; /* Changed from -2rem to 0 */
   }
   
   h1.text-5xl {
