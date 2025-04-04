@@ -177,9 +177,18 @@ body {
   padding: 5px 0;
 }
 
+/* Add custom text color classes to control main and subtext */
+h1.text-5xl {
+  color: #0b530c;
+}
+
+p.text-xl {
+  color: #144614;
+}
+
 /* Make sure the textarea is responsive and clickable */
 .playlist-textarea {
-  background-color: rgba(255, 255, 255, 0.8);
+  background-color: rgba(122, 122, 122, 0.6);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-radius: 0.5rem;
