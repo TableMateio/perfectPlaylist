@@ -1683,6 +1683,7 @@ function unfollowPlaylist(playlistId) {
   .then(response => {
     console.log("Playlist unfollow response status:", response.status);
     
+    // DELETE requests typically return 204 No Content (no response body)
     if (response.status === 200 || response.status === 204) {
       console.log("Playlist successfully unfollowed");
       
@@ -1747,6 +1748,62 @@ function unfollowPlaylist(playlistId) {
           }
         }, 3000); // Delay before starting animation sequence
       }
+    } else if (response.status === 401) {
+      // Handle expired token
+      console.log("Token expired during unfollow. Refreshing...");
+      refreshSpotifyToken(firebaseUID)
+        .then(newToken => {
+          if (newToken) {
+            console.log("Token refreshed, retrying unfollow");
+            sessionStorage.setItem('spotifyAccessToken', newToken);
+            
+            // Retry the unfollow with the new token
+            return fetch(`https://api.spotify.com/v1/playlists/${playlistId}/followers`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${newToken}`,
+                'Content-Type': 'application/json'
+              }
+            });
+          } else {
+            throw new Error("Failed to refresh token");
+          }
+        })
+        .then(retryResponse => {
+          if (retryResponse.status === 200 || retryResponse.status === 204) {
+            console.log("Playlist successfully unfollowed after token refresh");
+            
+            // Show success message and trigger animation
+            if (playlistViewerDiv) {
+              playlistViewerDiv.innerHTML = '';
+              const textBlock = document.createElement('p');
+              textBlock.className = 'playlist-coming';
+              textBlock.innerHTML = 'Playlist removed from your Spotify.<br><br>Create a new playlist when you\'re ready!';
+              playlistViewerDiv.appendChild(textBlock);
+              
+              // Hide the buttons
+              const element = document.getElementById("playlist-buttons");
+              if (element) {
+                element.classList.add("unauthenticated");
+              }
+              
+              // Remove playlist-visible class
+              document.body.classList.remove('playlist-visible');
+            }
+          } else {
+            throw new Error(`Failed to unfollow playlist after token refresh. Status: ${retryResponse.status}`);
+          }
+        })
+        .catch(refreshError => {
+          console.error("Error during token refresh or retry:", refreshError);
+          if (playlistViewerDiv) {
+            playlistViewerDiv.innerHTML = '';
+            const errorMsg = document.createElement('p');
+            errorMsg.className = 'playlist-coming';
+            errorMsg.textContent = 'There was an error removing the playlist. Please try again.';
+            playlistViewerDiv.appendChild(errorMsg);
+          }
+        });
     } else {
       throw new Error(`Failed to unfollow playlist. Status: ${response.status}`);
     }
