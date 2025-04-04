@@ -87,6 +87,7 @@ body {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
+  margin-top: 2rem; /* Add space between title and content */
   display: flex;
   flex-direction: row;
   justify-content: center;
