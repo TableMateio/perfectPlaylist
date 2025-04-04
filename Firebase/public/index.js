@@ -307,7 +307,7 @@ console.log(`Running in ${isFirebaseApp ? 'FIREBASE' : isTestEnvironment ? 'TEST
 // Configure Spotify using values from the ENV file
 const spotifyConfig = {
   clientId: ENV.SPOTIFY_CLIENT_ID,
-  redirectUri: `${baseUrl}/callback.html`,
+  redirectUri: `${baseUrl}/callback`,
 };
 
 console.log("Spotify redirect URI:", spotifyConfig.redirectUri);
