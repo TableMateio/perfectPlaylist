@@ -207,7 +207,7 @@ async function setImageBackground() {
     mainImage.style.backgroundPosition = 'center';
     mainImage.style.zIndex = '1';
     mainImage.style.opacity = '1';
-    mainImage.style.transition = 'opacity 2s ease-in-out';
+    mainImage.style.transition = 'opacity 3s ease-in-out';
     
     // Create next image element (initially hidden)
     const nextImage = document.createElement('div');
@@ -222,7 +222,7 @@ async function setImageBackground() {
     nextImage.style.backgroundPosition = 'center';
     nextImage.style.zIndex = '0';
     nextImage.style.opacity = '0';
-    nextImage.style.transition = 'opacity 2s ease-in-out';
+    nextImage.style.transition = 'opacity 3s ease-in-out';
     
     // Add images to container
     container.appendChild(nextImage);
@@ -232,7 +232,7 @@ async function setImageBackground() {
     console.log(`Prepared next image: ${backgroundImages[nextIndex]}`);
     
     // Start the image transition interval
-    let imageInterval = setInterval(() => {
+    const imageInterval = setInterval(() => {
       // Update indices
       currentIndex = nextIndex;
       nextIndex = (nextIndex + 1) % backgroundImages.length;
@@ -274,8 +274,8 @@ async function setImageBackground() {
           console.log(`Transitioned to image: ${backgroundImages[currentIndex]}`);
           console.log(`Prepared next image: ${backgroundImages[nextIndex]}`);
         }
-      }, 2000); // Wait for the crossfade to complete
-    }, 8000); // Change image every 8 seconds
+      }, 3000); // Wait for the crossfade to complete
+    }, 15000); // Change image every 15 seconds
     
     // Store the interval ID on the window object so it can be cleared if needed
     window.currentBackgroundInterval = imageInterval;
