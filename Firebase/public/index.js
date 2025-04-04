@@ -438,6 +438,7 @@ async function setVideoBackground() {
     fallbackImage.style.left = '0';
     fallbackImage.style.width = '100%';
     fallbackImage.style.height = '100%';
+    fallbackImage.style.backgroundColor = '#000'; // Black background instead of white
     fallbackImage.style.backgroundImage = `url('${currentVideoObj.startImage}')`;
     fallbackImage.style.backgroundSize = 'cover';
     fallbackImage.style.backgroundPosition = 'center';
@@ -449,7 +450,10 @@ async function setVideoBackground() {
     container.appendChild(fallbackImage);
     console.log(`Showing fallback image ${currentVideoObj.startImage} while video loads`);
     
-    // Create the main video element
+    // Set background color of container to black to avoid white flashes
+    container.style.backgroundColor = '#000000';
+    
+    // Create main video element
     let mainVideo = document.createElement('video');
     mainVideo.style.position = 'absolute';
     mainVideo.style.top = '50%';
@@ -467,6 +471,7 @@ async function setVideoBackground() {
     mainVideo.muted = true;
     mainVideo.playsInline = true;
     mainVideo.playbackRate = playbackRate; // Set initial playback rate
+    mainVideo.preload = 'auto'; // Ensure it preloads
     mainVideo.src = currentVideoObj.file;
     
     // Add to container
@@ -489,6 +494,7 @@ async function setVideoBackground() {
     nextVideo.muted = true;
     nextVideo.playsInline = true;
     nextVideo.playbackRate = playbackRate; // Set initial playback rate
+    nextVideo.preload = 'auto'; // Ensure it preloads
     nextVideo.src = nextVideoObj.file;
     nextVideo.load(); // Preload the next video
     
@@ -574,29 +580,35 @@ async function setVideoBackground() {
       if (mainVideo.duration > 0 && !transitionStarted) {
         const timeRemaining = mainVideo.duration - mainVideo.currentTime;
         
-        // Start transition just 0.5 seconds before the end
-        if (timeRemaining <= 0.5 && timeRemaining > 0) {
-          transitionStarted = true;
-          console.log(`Starting early crossfade with ${timeRemaining.toFixed(2)}s remaining`);
-          
-          // Start playing the next video
-          const playPromise = nextVideo.play();
-          
-          if (playPromise !== undefined) {
-            playPromise.then(() => {
-              console.log('Next video started playing during early crossfade');
-              
-              // Fade out the current video and fade in the next video
-              mainVideo.style.opacity = '0';
-              nextVideo.style.opacity = '1';
-              
-              // Don't remove the old video until the current one actually ends
-              // The 'ended' event will still fire and handleVideoEnd will do the cleanup
-            }).catch(error => {
-              console.error('Error playing next video during early crossfade:', error);
-              // If this fails, we'll fall back to the normal ended event handler
-              transitionStarted = false;
-            });
+        // Start crossfade earlier (1.5 seconds before end) to allow more time for transition
+        if (timeRemaining <= 1.5 && timeRemaining > 0) {
+          // First, make sure the next video is fully loaded and ready
+          if (nextVideo.readyState >= 3) { // HAVE_FUTURE_DATA or HAVE_ENOUGH_DATA
+            transitionStarted = true;
+            console.log(`Starting early crossfade with ${timeRemaining.toFixed(2)}s remaining`);
+            
+            // Start playing the next video
+            const playPromise = nextVideo.play();
+            
+            if (playPromise !== undefined) {
+              playPromise.then(() => {
+                console.log('Next video started playing during early crossfade');
+                
+                // Fade out the current video and fade in the next video
+                mainVideo.style.opacity = '0';
+                nextVideo.style.opacity = '1';
+                
+                // Don't remove the old video until the current one actually ends
+                // The 'ended' event will still fire and handleVideoEnd will do the cleanup
+              }).catch(error => {
+                console.error('Error playing next video during early crossfade:', error);
+                // If this fails, we'll fall back to the normal ended event handler
+                transitionStarted = false;
+              });
+            }
+          } else {
+            // Next video isn't ready yet, wait a bit longer
+            console.log(`Next video not fully loaded (readyState: ${nextVideo.readyState}), waiting...`);
           }
         }
       }
@@ -738,6 +750,7 @@ async function setVideoBackground() {
             newNextVideo.muted = true;
             newNextVideo.playsInline = true;
             newNextVideo.playbackRate = playbackRate; // Set initial playback rate
+            newNextVideo.preload = 'auto'; // Ensure it preloads
             newNextVideo.src = newNextVideoObj.file;
             newNextVideo.load(); // Preload it
             
@@ -843,6 +856,7 @@ async function setVideoBackground() {
         fallbackImage.style.left = '0';
         fallbackImage.style.width = '100%';
         fallbackImage.style.height = '100%';
+        fallbackImage.style.backgroundColor = '#000'; // Black background instead of white
         fallbackImage.style.backgroundImage = fallbackImageSrc ? 
           `url('${fallbackImageSrc}')` : 
           `url('${backgroundVideos[0].startImage || 'images/01.png'}')`;
