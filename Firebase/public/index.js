@@ -189,7 +189,7 @@ async function setVideoBackground() {
     
     // Choose a random video to start with
     const randomIndex = Math.floor(Math.random() * backgroundVideos.length);
-    const currentVideoObj = backgroundVideos[randomIndex];
+    let currentVideoObj = backgroundVideos[randomIndex];
     
     console.log(`Starting with random video ${randomIndex + 1}/${backgroundVideos.length}: ${currentVideoObj.file}`);
     
@@ -208,9 +208,15 @@ async function setVideoBackground() {
     } else {
       // No videos with matching transitions, choose any other video
       const remainingVideos = backgroundVideos.filter(video => video.file !== currentVideoObj.file);
-      const nextRandomIndex = Math.floor(Math.random() * remainingVideos.length);
-      nextVideoObj = remainingVideos[nextRandomIndex];
-      console.log(`No videos with matching transitions found, using random next video: ${nextVideoObj.file}`);
+      if (remainingVideos.length > 0) {
+        const nextRandomIndex = Math.floor(Math.random() * remainingVideos.length);
+        nextVideoObj = remainingVideos[nextRandomIndex];
+        console.log(`No videos with matching transitions found, using random next video: ${nextVideoObj.file}`);
+      } else {
+        // Only one video available, reuse the same one
+        nextVideoObj = currentVideoObj;
+        console.log(`Only one video available, reusing: ${nextVideoObj.file}`);
+      }
     }
     
     // Use start image fallback while loading
@@ -354,7 +360,7 @@ async function setVideoBackground() {
       if (transitionStarted) {
         console.log('Video ended, completing transition that started early');
       } else {
-        console.log(`Video ended, starting transition`);
+        console.log('Video ended, starting transition');
         
         // Start playing the next video
         const playPromise = nextVideo.play();
@@ -424,9 +430,15 @@ async function setVideoBackground() {
           if (Math.random() < 0.3) {
             // Pick any random video that's not the current one
             const availableVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
-            const randomIdx = Math.floor(Math.random() * availableVideos.length);
-            newNextVideoObj = availableVideos[randomIdx];
-            console.log(`Selecting random video for variety: ${newNextVideoObj.file}`);
+            if (availableVideos.length > 0) {
+              const randomIdx = Math.floor(Math.random() * availableVideos.length);
+              newNextVideoObj = availableVideos[randomIdx];
+              console.log(`Selecting random video for variety: ${newNextVideoObj.file}`);
+            } else {
+              // Only one video available, reuse it
+              newNextVideoObj = nextVideoObj;
+              console.log(`Only one video available, reusing: ${newNextVideoObj.file}`);
+            }
           } else {
             // Try to find a video with a matching transition
             const matchingVideos = backgroundVideos.filter(v => 
@@ -441,9 +453,15 @@ async function setVideoBackground() {
             } else {
               // No matching transitions, choose another random video
               const otherVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
-              const otherIdx = Math.floor(Math.random() * otherVideos.length);
-              newNextVideoObj = otherVideos[otherIdx];
-              console.log(`No matching transitions found, using random next video: ${newNextVideoObj.file}`);
+              if (otherVideos.length > 0) {
+                const otherIdx = Math.floor(Math.random() * otherVideos.length);
+                newNextVideoObj = otherVideos[otherIdx];
+                console.log(`No matching transitions found, using random next video: ${newNextVideoObj.file}`);
+              } else {
+                // If there are no other videos, reuse the current one
+                newNextVideoObj = nextVideoObj;
+                console.log(`No other videos available, reusing current video: ${newNextVideoObj.file}`);
+              }
             }
           }
         } else {
@@ -460,9 +478,15 @@ async function setVideoBackground() {
           } else {
             // No matching transitions, choose another random video
             const otherVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
-            const otherIdx = Math.floor(Math.random() * otherVideos.length);
-            newNextVideoObj = otherVideos[otherIdx];
-            console.log(`No matching transitions found, using random next video: ${newNextVideoObj.file}`);
+            if (otherVideos.length > 0) {
+              const otherIdx = Math.floor(Math.random() * otherVideos.length);
+              newNextVideoObj = otherVideos[otherIdx];
+              console.log(`No matching transitions found, using random next video: ${newNextVideoObj.file}`);
+            } else {
+              // If there are no other videos, reuse the current one
+              newNextVideoObj = nextVideoObj;
+              console.log(`No other videos available, reusing current video: ${newNextVideoObj.file}`);
+            }
           }
         }
         
@@ -579,18 +603,6 @@ document.addEventListener("DOMContentLoaded", () => {
   
   // Rotate examples every 5 seconds
   setInterval(rotateExamplePrompts, 5000);
-  
-  // Hide the background toggle since we're always using video now
-  const bgToggle = document.getElementById('bg-toggle');
-  if (bgToggle) {
-    // Hide the toggle element or its parent container
-    const toggleContainer = bgToggle.closest('.toggle-container') || bgToggle.parentElement;
-    if (toggleContainer) {
-      toggleContainer.style.display = 'none';
-    } else {
-      bgToggle.style.display = 'none';
-    }
-  }
   
   // Set video background
   setVideoBackground().catch(err => {
