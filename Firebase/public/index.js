@@ -280,12 +280,24 @@ async function setVideoBackground() {
     mainVideo.src = currentVideoSrc;
     mainVideo.style.display = 'block';
     mainVideo.style.opacity = '1';
+    mainVideo.style.transition = 'opacity 0.3s ease-in-out';
     
     // Preload the next video but keep it hidden
     nextVideo.src = nextVideoSrc;
-    nextVideo.style.display = 'none';
+    nextVideo.preload = 'auto'; // Ensure it preloads
+    nextVideo.style.display = 'block'; // Need display:block to preload properly
     nextVideo.style.opacity = '0';
-    nextVideo.load(); // Preload it
+    nextVideo.style.transition = 'opacity 0.3s ease-in-out';
+    nextVideo.muted = true; // Mute to avoid autoplay issues
+    nextVideo.currentTime = 0; // Reset to beginning
+    
+    // Preload but don't play
+    nextVideo.load();
+    
+    // Debug event handler for next video preloading
+    nextVideo.onloadeddata = () => {
+      console.log(`Next video preloaded and ready: ${nextVideoIndex + 1}/${backgroundVideos.length}`);
+    };
     
     // Debug event handler for current video playing
     mainVideo.onplay = () => {
@@ -294,6 +306,7 @@ async function setVideoBackground() {
     
     // Add timeupdate listener instead of onended
     // This is more reliable for detecting when we're near the end
+    let fadeStarted = false;
     let transitionTriggered = false;
     
     mainVideo.ontimeupdate = () => {
@@ -305,45 +318,81 @@ async function setVideoBackground() {
       // Check if we're near the end of the video
       const timeRemaining = mainVideo.duration - mainVideo.currentTime;
       
-      // Trigger transition when we're 0.2 seconds from the end
-      if (timeRemaining <= 0.2 && mainVideo.duration > 0 && !transitionTriggered) {
-        // Only trigger once
-        transitionTriggered = true;
-        console.log(`Video ${currentVideoIndex + 1} near end (${timeRemaining.toFixed(2)}s remaining), triggering transition`);
+      // Start crossfade 0.3 seconds before the end
+      if (timeRemaining <= 0.3 && mainVideo.duration > 0 && !fadeStarted) {
+        fadeStarted = true;
+        console.log(`Starting crossfade with ${timeRemaining.toFixed(2)}s remaining`);
         
-        // Move to the next video
-        moveToNextVideo();
+        // Start fading out the current video
+        mainVideo.style.opacity = '0';
+        
+        // Play and fade in the next video
+        try {
+          // Start the next video
+          const playPromise = nextVideo.play();
+          nextVideo.style.opacity = '1';
+          
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => console.log(`Next video ${nextVideoIndex + 1} started playing during crossfade`))
+              .catch(error => {
+                console.error('Error starting next video during crossfade:', error);
+                // Try to recover somehow
+                startNextVideoWithFallback();
+              });
+          }
+        } catch (error) {
+          console.error('Error during crossfade transition:', error);
+          startNextVideoWithFallback();
+        }
+      }
+      
+      // Complete transition when we're done with the video
+      // This is a safety to ensure we transition even if the fade didn't work
+      if (timeRemaining <= 0.05 && mainVideo.duration > 0 && !transitionTriggered) {
+        transitionTriggered = true;
+        console.log(`Video ${currentVideoIndex + 1} ended, completing transition`);
+        completeTransition();
       }
     };
     
-    // Function to handle moving to the next video
-    function moveToNextVideo() {
-      console.log(`Transitioning from video ${currentVideoIndex + 1} to video ${nextVideoIndex + 1}`);
+    // Function to handle a fallback start if the crossfade fails
+    function startNextVideoWithFallback() {
+      console.log('Using fallback method to start next video');
+      
+      // Try again with force
+      nextVideo.muted = true;
+      nextVideo.currentTime = 0;
+      nextVideo.style.opacity = '1';
+      
+      try {
+        // Force play with direct play() call
+        nextVideo.play()
+          .then(() => console.log('Next video started with fallback'))
+          .catch(err => {
+            console.error('Even fallback failed:', err);
+            // Last resort: complete transition anyway
+            completeTransition();
+          });
+      } catch (e) {
+        console.error('Exception in fallback play():', e);
+        completeTransition();
+      }
+    }
+    
+    // Function to finalize the transition to the next video
+    function completeTransition() {
+      console.log(`Completing transition from video ${currentVideoIndex + 1} to video ${nextVideoIndex + 1}`);
       
       // Update the index for the next cycle
       currentVideoIndex = nextVideoIndex;
       
-      // Show the next video
-      nextVideo.style.display = 'block';
+      // Ensure next video is fully visible
       nextVideo.style.opacity = '1';
       
-      // Play the next video
-      const playPromise = nextVideo.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          console.error('Error playing next video:', error);
-          // Try again with muted attribute if autoplay was blocked
-          nextVideo.muted = true; 
-          console.log('Retrying with muted video');
-          nextVideo.play()
-            .then(() => console.log('Next video started playing after retry'))
-            .catch(err => console.error('Second attempt also failed:', err));
-        });
-      }
-      
-      // Hide the current video
-      mainVideo.style.display = 'none';
-      mainVideo.pause(); // Stop playing current video to save resources
+      // Hide and stop the old video
+      mainVideo.style.opacity = '0';
+      mainVideo.pause();
       
       // Reset for next cycle
       setTimeout(() => {
