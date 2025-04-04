@@ -40,6 +40,12 @@
             }
           ]
         }
+      ],
+      "rewrites": [
+        {
+          "source": "/callback",
+          "destination": "/callback.html"
+        }
       ]
     },
     {
@@ -59,6 +65,12 @@
               "value": "*"
             }
           ]
+        }
+      ],
+      "rewrites": [
+        {
+          "source": "/callback",
+          "destination": "/callback.html"
         }
       ]
     }
