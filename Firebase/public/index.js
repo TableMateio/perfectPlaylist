@@ -1675,8 +1675,69 @@ function resetUI() {
 // Call resetUI at appropriate places in your code
 // For example, after unfollowing a playlist
 function unfollowPlaylist(playlistId) {
-  // ... existing unfollow code ...
+  const firebaseUID = sessionStorage.getItem('firebaseUID');
+  const accessToken = sessionStorage.getItem('spotifyAccessToken');
   
-  // After unfollowing, reset the UI
-  resetUI();
+  if (!accessToken) {
+    console.error("No access token available for unfollowing playlist");
+    return;
+  }
+  
+  // Show a loading message while unfollowing
+  const playlistViewerDiv = document.getElementById('playlist-viewer');
+  if (playlistViewerDiv) {
+    playlistViewerDiv.innerHTML = '';
+    const loadingMsg = document.createElement('p');
+    loadingMsg.className = 'playlist-coming';
+    loadingMsg.textContent = 'Removing playlist...';
+    playlistViewerDiv.appendChild(loadingMsg);
+  }
+  
+  // Call Spotify API to unfollow the playlist
+  spotifyAPI(accessToken, `https://api.spotify.com/v1/playlists/${playlistId}/followers`, 'DELETE', {}, firebaseUID)
+    .then(() => {
+      console.log("Playlist successfully unfollowed");
+      
+      // Update the UI
+      if (playlistViewerDiv) {
+        playlistViewerDiv.innerHTML = '';
+        const textBlock = document.createElement('p');
+        textBlock.className = 'playlist-coming';
+        textBlock.innerHTML = 'Playlist removed from your Spotify.<br><br>Create a new playlist when you\'re ready!';
+        playlistViewerDiv.appendChild(textBlock);
+      }
+      
+      // Hide the buttons
+      const element = document.getElementById("playlist-buttons");
+      if (element) {
+        element.classList.add("unauthenticated");
+      }
+      
+      // Reset the UI state
+      document.body.classList.remove('playlist-visible');
+      
+      // Reset input field for next playlist
+      const textarea = document.getElementById('playlist-description-input');
+      if (textarea) {
+        textarea.value = '';
+        
+        // Subtly highlight the textarea to draw attention back to it
+        textarea.classList.add('highlight-input');
+        setTimeout(() => {
+          textarea.classList.remove('highlight-input');
+        }, 1500);
+      }
+    })
+    .catch(error => {
+      console.error("Error unfollowing playlist:", error);
+      
+      // Show error message
+      if (playlistViewerDiv) {
+        playlistViewerDiv.innerHTML = '';
+        const errorMsg = document.createElement('p');
+        errorMsg.className = 'playlist-coming';
+        errorMsg.textContent = 'There was an error removing the playlist. Please try again.';
+        playlistViewerDiv.appendChild(errorMsg);
+      }
+    });
 }
