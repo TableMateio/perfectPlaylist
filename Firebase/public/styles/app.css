@@ -10,7 +10,6 @@ html, body {
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background: linear-gradient(135deg, #121212 0%, #181818 50%, #1E1E1E 100%);
   color: #fff;
   position: relative;
   min-height: 100vh; /* Ensure body is at least viewport height */
@@ -28,7 +27,7 @@ body {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  z-index: -1; /* Push background behind content */
+  z-index: -1; /* Only background has negative z-index */
   overflow: hidden;
 }
 
@@ -231,7 +230,7 @@ p.text-xl {
   transition: all 0.4s cubic-bezier(0.215, 0.61, 0.355, 1);
   color: #333333;
   position: relative;
-  z-index: 50 !important;
+  z-index: 10 !important; /* Ensure it's above background but not too high */
   pointer-events: auto !important;
   cursor: text !important;
   box-sizing: border-box;
@@ -263,7 +262,7 @@ p.text-xl {
               inset 0 1px 3px rgba(255, 255, 255, 0.3);
   border: 1px solid rgba(29, 185, 84, 0.6);
   background-color: rgba(255, 255, 255, 0.95);
-  z-index: 100 !important;
+  z-index: 50 !important; /* Higher z-index when focused */
   transform: translateY(-4px);
 }
 
@@ -657,4 +656,14 @@ p.text-xl {
   .btn-spotify, .btn-unfollow {
     margin-bottom: 0.5rem;
   }
+}
+
+/* Add a layer structure for proper stacking context */
+.content-wrapper {
+  position: relative;
+  z-index: 1; /* Above background */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 } 
