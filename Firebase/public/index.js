@@ -320,7 +320,19 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   
   // Set random background based on saved preference
-  setRandomBackground();
+  // Ensure we properly initialize video backgrounds
+  const useVideo = localStorage.getItem(BACKGROUND_PREF_KEY) === 'video';
+  if (useVideo) {
+    // Call video background directly to ensure it starts properly
+    setRandomVideoBackground().catch(err => {
+      console.error("Error setting initial video background:", err);
+      // Fall back to image background if video fails
+      setRandomImageBackground();
+    });
+  } else {
+    // Use image background
+    setRandomImageBackground();
+  }
   
   console.log('DOMContentLoaded event fired - backgrounds and examples initialized');
 
