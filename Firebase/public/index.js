@@ -212,7 +212,7 @@ async function setImageBackground() {
       imgElement.style.backgroundSize = 'cover';
       imgElement.style.backgroundPosition = 'center';
       imgElement.style.opacity = i === 0 ? '1' : '0';
-      imgElement.style.transition = 'opacity 10s linear';
+      imgElement.style.transition = 'opacity 4s ease-in-out';
       imgElement.style.zIndex = i === 0 ? '2' : '1';
       
       // Store the current image index
@@ -242,7 +242,7 @@ async function setImageBackground() {
       const thirdElement = imageElements[thirdPos];
       
       // Get the next image index
-      currentImageIndex = (parseInt(currentElement.dataset.imageIndex) + 1) % backgroundImages.length;
+      currentImageIndex = (Number.parseInt(currentElement.dataset.imageIndex) + 1) % backgroundImages.length;
       const nextImageIndex = (currentImageIndex + 1) % backgroundImages.length;
       
       // Update the third element with the next image
@@ -270,8 +270,8 @@ async function setImageBackground() {
       activeIndex = nextPos;
     };
     
-    // Start the continuous crossfades - change every 10 seconds
-    const crossfadeInterval = setInterval(doCrossfade, 10000);
+    // Start the crossfades with pattern: stay still for 10 seconds, then transition over 4 seconds
+    const crossfadeInterval = setInterval(doCrossfade, 14000);
     
     // Store the interval ID on the window object so it can be cleared if needed
     window.currentBackgroundInterval = crossfadeInterval;
