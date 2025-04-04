@@ -202,6 +202,8 @@ async function setRandomImageBackground() {
 // Function to set video backgrounds and cycle through them
 async function setVideoBackground() {
   try {
+    console.log("Starting setVideoBackground, current index:", currentVideoIndex);
+    
     // Hide the static background div
     const bgAppElement = document.querySelector('.bg-app');
     if (bgAppElement) {
@@ -209,10 +211,10 @@ async function setVideoBackground() {
     }
     
     // Get the video elements
-    const videoElement = document.querySelector('.bg-video');
-    const nextVideoElement = document.querySelector('.bg-video-next');
+    const mainVideo = document.querySelector('.bg-video');
+    const nextVideo = document.querySelector('.bg-video-next');
     
-    if (!videoElement || !nextVideoElement) {
+    if (!mainVideo || !nextVideo) {
       throw new Error('Video elements not found');
     }
     
@@ -234,93 +236,99 @@ async function setVideoBackground() {
       if (videoList.length === 0) {
         throw new Error('No background videos found in the JSON file');
       }
+      
+      console.log(`Loaded ${videoList.length} videos from list.json`);
     }
     
-    // Play the current video in the sequence
-    if (backgroundVideos.length > 0) {
-      const selectedVideo = backgroundVideos[currentVideoIndex];
-      
-      // Set up the current video element
-      videoElement.style.display = 'block';
-      videoElement.style.opacity = '1';
-      
-      // Only set source if it's not already playing this video
-      if (videoElement.src !== new URL(selectedVideo, window.location.href).href) {
-        videoElement.src = selectedVideo;
-        videoElement.load();
-      }
-      
-      // Calculate next video index for preloading
-      const nextIndex = (currentVideoIndex + 1) % backgroundVideos.length;
-      const nextVideo = backgroundVideos[nextIndex];
-      
-      // Preload the next video but don't play it yet
-      if (nextVideoElement.src !== new URL(nextVideo, window.location.href).href) {
-        nextVideoElement.src = nextVideo;
-        nextVideoElement.style.display = 'none'; // Keep it hidden until needed
-        nextVideoElement.preload = 'auto'; // Explicitly set preload
-        nextVideoElement.load(); // Load but don't play
-        console.log(`Preloaded next video: ${nextVideo}`);
-      }
-      
-      // Ensure current video plays
-      videoElement.play().catch(err => {
-        console.error('Error playing video:', err);
-        // Fall back to image if video fails to play
-        setRandomImageBackground();
-        return;
-      });
-      
-      // DEBUG: Log when the video starts playing
-      videoElement.onplay = () => {
-        console.log(`Video ${currentVideoIndex + 1} started playing: ${selectedVideo}`);
-      };
-      
-      // Add event listener for when current video ends
-      videoElement.onended = () => {
-        console.log(`Video ${currentVideoIndex + 1} ended, switching to video ${nextIndex + 1}`);
-        
-        // Update the index for the next cycle
-        currentVideoIndex = nextIndex;
-        
-        // Make next video visible and play it
-        nextVideoElement.style.display = 'block';
-        nextVideoElement.style.opacity = '1';
-        
-        // Play the next video immediately
-        const playPromise = nextVideoElement.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(err => {
-            console.error('Error playing next video:', err);
-            // If autoplay is blocked, try again with user interaction
-            nextVideoElement.muted = true; // Ensure muted to help with autoplay
-            nextVideoElement.play().catch(innerErr => {
-              console.error('Second attempt to play video failed:', innerErr);
-            });
-          });
-        }
-        
-        // Swap the elements' roles
-        [videoElement.className, nextVideoElement.className] = [nextVideoElement.className, videoElement.className];
-        
-        // Reset opacity on the now-hidden element
-        videoElement.style.opacity = '0';
-        videoElement.style.display = 'none';
-        
-        // Call this function again to set up the next video
-        setTimeout(() => {
-          setVideoBackground();
-        }, 50);
-      };
-      
-      console.log(`Playing background video ${currentVideoIndex + 1}/${backgroundVideos.length}: ${selectedVideo}`);
-    } else {
-      console.error('No background videos found in memory');
-      // Fall back to image background
-      setRandomImageBackground();
+    // Make sure we have videos to work with
+    if (backgroundVideos.length === 0) {
+      throw new Error('No background videos available');
     }
+    
+    // Current video details
+    const currentVideoSrc = backgroundVideos[currentVideoIndex];
+    console.log(`Setting up current video ${currentVideoIndex + 1}/${backgroundVideos.length}: ${currentVideoSrc}`);
+    
+    // Calculate next video index
+    const nextVideoIndex = (currentVideoIndex + 1) % backgroundVideos.length;
+    const nextVideoSrc = backgroundVideos[nextVideoIndex];
+    console.log(`Next video will be ${nextVideoIndex + 1}/${backgroundVideos.length}: ${nextVideoSrc}`);
+    
+    // Clear any existing event listeners to prevent memory leaks
+    mainVideo.onended = null;
+    mainVideo.onplay = null;
+    nextVideo.onended = null;
+    nextVideo.onplay = null;
+    
+    // Set up the current video
+    mainVideo.src = currentVideoSrc;
+    mainVideo.style.display = 'block';
+    mainVideo.style.opacity = '1';
+    
+    // Preload the next video but keep it hidden
+    nextVideo.src = nextVideoSrc;
+    nextVideo.style.display = 'none';
+    nextVideo.style.opacity = '0';
+    nextVideo.load(); // Preload it
+    
+    // Debug event handler for current video playing
+    mainVideo.onplay = () => {
+      console.log(`Now playing video ${currentVideoIndex + 1}/${backgroundVideos.length}`);
+    };
+    
+    // Critical event handler for when current video ends
+    mainVideo.onended = () => {
+      console.log(`Video ${currentVideoIndex + 1} ended, switching to video ${nextVideoIndex + 1}`);
+      
+      // Update the index for the next cycle
+      currentVideoIndex = nextVideoIndex;
+      
+      // Show the next video
+      nextVideo.style.display = 'block';
+      nextVideo.style.opacity = '1';
+      
+      // Play the next video
+      const playPromise = nextVideo.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.error('Error playing next video:', error);
+          nextVideo.muted = true; // Ensure it's muted (helps with autoplay)
+          nextVideo.play(); // Try again
+        });
+      }
+      
+      // Hide the current video now that next is playing
+      mainVideo.style.display = 'none';
+      
+      // IMPORTANT: Swap the elements
+      const tempSrc = mainVideo.src;
+      mainVideo.src = nextVideo.src;
+      nextVideo.src = tempSrc;
+      
+      // After a short delay, call this function again to set up the next video in sequence
+      setTimeout(() => {
+        setVideoBackground();
+      }, 100);
+    };
+    
+    // Make sure the main video plays
+    try {
+      const playPromise = mainVideo.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.error('Error playing main video:', error);
+          // Try with muted if autoplay was blocked
+          mainVideo.muted = true;
+          mainVideo.play();
+        });
+      }
+    } catch (playError) {
+      console.error('Exception playing video:', playError);
+      setRandomImageBackground(); // Fall back to image
+    }
+    
   } catch (error) {
-    console.error('Error setting video background:', error);
+    console.error('Error in video background setup:', error);
     // Fall back to image background
     setRandomImageBackground();
   }
