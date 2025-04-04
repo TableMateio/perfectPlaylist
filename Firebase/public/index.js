@@ -307,78 +307,163 @@ async function setVideoBackground() {
     // Handle main video end
     mainVideo.addEventListener('ended', handleVideoEnd);
     
+    // Add timeupdate listener to start transition before the video ends
+    mainVideo.addEventListener('timeupdate', () => {
+      // Start crossfade when video is 80% complete rather than waiting until it ends
+      if (mainVideo.duration > 0 && !transitionStarted) {
+        const percentComplete = mainVideo.currentTime / mainVideo.duration;
+        
+        // Start transition at 80% of the video duration
+        if (percentComplete >= 0.8) {
+          transitionStarted = true;
+          console.log(`Starting early crossfade at ${Math.round(percentComplete * 100)}% of video`);
+          
+          // Start playing the next video
+          const playPromise = nextVideo.play();
+          
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              console.log('Next video started playing during early crossfade');
+              
+              // Fade out the current video and fade in the next video
+              mainVideo.style.opacity = '0';
+              nextVideo.style.opacity = '1';
+              
+              // Don't remove the old video until the current one actually ends
+              // The 'ended' event will still fire and handleVideoEnd will do the cleanup
+            }).catch(error => {
+              console.error('Error playing next video during early crossfade:', error);
+              // If this fails, we'll fall back to the normal ended event handler
+              transitionStarted = false;
+            });
+          }
+        }
+      }
+    });
+    
+    // Variable to track if transition has started
+    let transitionStarted = false;
+    
     // Function to handle transition to next video
     function handleVideoEnd() {
-      console.log(`Video ${currentVideoIndex + 1} ended, transitioning to next video`);
-      
-      // Start playing the next video
-      const playPromise = nextVideo.play();
-      
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          console.log('Next video started playing');
-          
-          // Fade out the current video and fade in the next video
-          mainVideo.style.opacity = '0';
-          nextVideo.style.opacity = '1';
-          
-          // After the transition is complete, prepare the next cycle
-          setTimeout(() => {
-            // Update the index for next time
-            currentVideoIndex = nextVideoIndex;
+      // If we already started transition, just do cleanup
+      if (transitionStarted) {
+        console.log('Video ended, completing transition that started early');
+      } else {
+        console.log(`Video ${currentVideoIndex + 1} ended, starting transition`);
+        
+        // Start playing the next video
+        const playPromise = nextVideo.play();
+        
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            console.log('Next video started playing');
             
-            // IMPORTANT: Keep the old video in the DOM until the next one is ready
-            // This prevents white flashing
-            
-            // Instead of removing the old video and starting a new cycle immediately,
-            // let's just create a new preloaded video for the next transition
-            const newNextIndex = (currentVideoIndex + 1) % backgroundVideos.length;
-            
-            // Create a new video element that will be used in the next transition
-            const newNextVideo = document.createElement('video');
-            newNextVideo.style.position = 'absolute';
-            newNextVideo.style.top = '50%';
-            newNextVideo.style.left = '50%';
-            newNextVideo.style.transform = 'translate(-50%, -50%)';
-            newNextVideo.style.minWidth = '100%';
-            newNextVideo.style.minHeight = '100%';
-            newNextVideo.style.width = 'auto';
-            newNextVideo.style.height = 'auto';
-            newNextVideo.style.objectFit = 'cover';
-            newNextVideo.style.opacity = '0';
-            newNextVideo.style.transition = 'opacity 1s ease-in-out';
-            newNextVideo.muted = true;
-            newNextVideo.playsInline = true;
-            newNextVideo.src = backgroundVideos[newNextIndex];
-            newNextVideo.load(); // Preload the next video
-            
-            // Add to container
-            container.appendChild(newNextVideo);
-            
-            console.log(`Prepared next video ${newNextIndex + 1}/${backgroundVideos.length}: ${backgroundVideos[newNextIndex]}`);
-            
-            // Now remove the old video element (previous mainVideo)
-            mainVideo.removeEventListener('ended', handleVideoEnd);
-            container.removeChild(mainVideo);
-            
-            // Update references for next cycle
-            mainVideo = nextVideo;
-            nextVideo = newNextVideo;
-            
-            // Set up event listener for the new main video
-            mainVideo.addEventListener('ended', handleVideoEnd);
-          }, 1000); // Wait for the crossfade to complete
-        }).catch(error => {
-          console.error('Error playing next video:', error);
-          // Try with explicit muted attribute which helps with autoplay
-          nextVideo.muted = true;
-          nextVideo.play().catch(err => {
-            console.error('Failed to play even with muted attribute:', err);
-            setRandomImageBackground(); // Fall back to image
+            // Fade out the current video and fade in the next video
+            mainVideo.style.opacity = '0';
+            nextVideo.style.opacity = '1';
+          }).catch(error => {
+            console.error('Error playing next video:', error);
+            // Try with explicit muted attribute which helps with autoplay
+            nextVideo.muted = true;
+            nextVideo.play().catch(err => {
+              console.error('Failed to play even with muted attribute:', err);
+              setRandomImageBackground(); // Fall back to image
+              return;
+            });
           });
-        });
+        }
+      }
+      
+      // After transition begins, prepare for the next cycle
+      // Use setTimeout to ensure the transition has time to complete visually
+      setTimeout(() => {
+        // Update the index for next time
+        currentVideoIndex = nextVideoIndex;
+        
+        // Create a new next video for the next cycle
+        const newNextIndex = (currentVideoIndex + 1) % backgroundVideos.length;
+        
+        // Create a new video element that will be used in the next transition
+        const newNextVideo = document.createElement('video');
+        newNextVideo.style.position = 'absolute';
+        newNextVideo.style.top = '50%';
+        newNextVideo.style.left = '50%';
+        newNextVideo.style.transform = 'translate(-50%, -50%)';
+        newNextVideo.style.minWidth = '100%';
+        newNextVideo.style.minHeight = '100%';
+        newNextVideo.style.width = 'auto';
+        newNextVideo.style.height = 'auto';
+        newNextVideo.style.objectFit = 'cover';
+        newNextVideo.style.opacity = '0';
+        newNextVideo.style.transition = 'opacity 1s ease-in-out';
+        newNextVideo.muted = true;
+        newNextVideo.playsInline = true;
+        newNextVideo.src = backgroundVideos[newNextIndex];
+        newNextVideo.load(); // Preload it
+        
+        // Add to container
+        container.appendChild(newNextVideo);
+        
+        console.log(`Prepared next video ${newNextIndex + 1}/${backgroundVideos.length}: ${backgroundVideos[newNextIndex]}`);
+        
+        // Remove the old video element (previous mainVideo)
+        mainVideo.removeEventListener('ended', handleVideoEnd);
+        mainVideo.removeEventListener('timeupdate', timeUpdateHandler);
+        container.removeChild(mainVideo);
+        
+        // Update references for next cycle
+        mainVideo = nextVideo;
+        nextVideo = newNextVideo;
+        
+        // Reset transition flag
+        transitionStarted = false;
+        
+        // Set up event listeners for the new main video
+        mainVideo.addEventListener('ended', handleVideoEnd);
+        mainVideo.addEventListener('timeupdate', timeUpdateHandler);
+      }, 1000); // Wait for the crossfade to complete
+    }
+    
+    // Define timeupdate handler as a named function so we can remove it later
+    function timeUpdateHandler() {
+      // Start crossfade when video is 80% complete rather than waiting until it ends
+      if (mainVideo.duration > 0 && !transitionStarted) {
+        const percentComplete = mainVideo.currentTime / mainVideo.duration;
+        
+        // Start transition at 80% of the video duration
+        if (percentComplete >= 0.8) {
+          transitionStarted = true;
+          console.log(`Starting early crossfade at ${Math.round(percentComplete * 100)}% of video`);
+          
+          // Start playing the next video
+          const playPromise = nextVideo.play();
+          
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              console.log('Next video started playing during early crossfade');
+              
+              // Fade out the current video and fade in the next video
+              mainVideo.style.opacity = '0';
+              nextVideo.style.opacity = '1';
+              
+              // Don't remove the old video until the current one actually ends
+              // The 'ended' event will still fire and handleVideoEnd will do the cleanup
+            }).catch(error => {
+              console.error('Error playing next video during early crossfade:', error);
+              // If this fails, we'll fall back to the normal ended event handler
+              transitionStarted = false;
+            });
+          }
+        }
       }
     }
+    
+    // Variable to track if transition has started
+    let transitionStarted = false;
+    
+    // Add the timeupdate listener
+    mainVideo.addEventListener('timeupdate', timeUpdateHandler);
     
     // Start playing the main video
     const playPromise = mainVideo.play();
