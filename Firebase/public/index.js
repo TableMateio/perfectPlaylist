@@ -244,8 +244,8 @@ async function setVideoBackground() {
       throw new Error('No background videos available');
     }
     
-    // Create the main video element
-    const mainVideo = document.createElement('video');
+    // Create the main video element - use let instead of const to allow reassignment
+    let mainVideo = document.createElement('video');
     mainVideo.style.position = 'absolute';
     mainVideo.style.top = '50%';
     mainVideo.style.left = '50%';
@@ -268,8 +268,8 @@ async function setVideoBackground() {
     // Add to container
     container.appendChild(mainVideo);
     
-    // Create a next video element for seamless transitions
-    const nextVideo = document.createElement('video');
+    // Create a next video element for seamless transitions - use let instead of const
+    let nextVideo = document.createElement('video');
     nextVideo.style.position = 'absolute';
     nextVideo.style.top = '50%';
     nextVideo.style.left = '50%';
@@ -322,17 +322,51 @@ async function setVideoBackground() {
           mainVideo.style.opacity = '0';
           nextVideo.style.opacity = '1';
           
-          // After the transition is complete, set up for the next cycle
+          // After the transition is complete, prepare the next cycle
           setTimeout(() => {
-            // Update the index
+            // Update the index for next time
             currentVideoIndex = nextVideoIndex;
             
-            // Remove the old video element
+            // IMPORTANT: Keep the old video in the DOM until the next one is ready
+            // This prevents white flashing
+            
+            // Instead of removing the old video and starting a new cycle immediately,
+            // let's just create a new preloaded video for the next transition
+            const newNextIndex = (currentVideoIndex + 1) % backgroundVideos.length;
+            
+            // Create a new video element that will be used in the next transition
+            const newNextVideo = document.createElement('video');
+            newNextVideo.style.position = 'absolute';
+            newNextVideo.style.top = '50%';
+            newNextVideo.style.left = '50%';
+            newNextVideo.style.transform = 'translate(-50%, -50%)';
+            newNextVideo.style.minWidth = '100%';
+            newNextVideo.style.minHeight = '100%';
+            newNextVideo.style.width = 'auto';
+            newNextVideo.style.height = 'auto';
+            newNextVideo.style.objectFit = 'cover';
+            newNextVideo.style.opacity = '0';
+            newNextVideo.style.transition = 'opacity 1s ease-in-out';
+            newNextVideo.muted = true;
+            newNextVideo.playsInline = true;
+            newNextVideo.src = backgroundVideos[newNextIndex];
+            newNextVideo.load(); // Preload the next video
+            
+            // Add to container
+            container.appendChild(newNextVideo);
+            
+            console.log(`Prepared next video ${newNextIndex + 1}/${backgroundVideos.length}: ${backgroundVideos[newNextIndex]}`);
+            
+            // Now remove the old video element (previous mainVideo)
             mainVideo.removeEventListener('ended', handleVideoEnd);
             container.removeChild(mainVideo);
             
-            // Start a new cycle
-            setVideoBackground();
+            // Update references for next cycle
+            mainVideo = nextVideo;
+            nextVideo = newNextVideo;
+            
+            // Set up event listener for the new main video
+            mainVideo.addEventListener('ended', handleVideoEnd);
           }, 1000); // Wait for the crossfade to complete
         }).catch(error => {
           console.error('Error playing next video:', error);
