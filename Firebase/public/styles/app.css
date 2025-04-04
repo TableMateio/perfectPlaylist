@@ -61,11 +61,12 @@ body {
   width: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center; /* Restored to center from flex-start */
+  justify-content: center;
   align-items: center;
   padding: 2rem 1rem;
   box-sizing: border-box;
   position: relative;
+  padding-top: 4rem; /* Add more space above title */
 }
 
 /* Main content inner container with actual content */
@@ -73,8 +74,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center; /* Restored to center from flex-start */
-  min-height: 85vh; /* Restored from auto to 85vh */
+  justify-content: center;
+  min-height: 85vh;
   width: 100%;
   position: relative;
   padding: 1rem 0;
@@ -88,65 +89,21 @@ body {
   z-index: 100;
 }
 
-/* Make sure app container is scrollable */
+/* Make sure app container is scrollable and properly spaced */
 .app-container {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  margin-top: 2rem; /* Add space between title and content */
+  margin-top: 2rem; /* Space between title and content */
   display: flex;
   flex-direction: row;
   justify-content: center;
-  align-items: flex-start;
-  gap: 40px;
+  align-items: center; /* Center align children vertically */
+  gap: 60px; /* Increased gap between input and output */
   box-sizing: border-box;
   flex-wrap: wrap;
   overflow: visible;
   padding: 20px;
-}
-
-@media (max-width: 960px) {
-  .app-container {
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    padding-bottom: 4rem;
-    width: 96%;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  
-  .input-section, .output-section {
-    max-width: 100%;
-    width: 100%;
-  }
-  
-  .input-section.shifted {
-    transform: translateY(-5px);
-    opacity: 0.9;
-  }
-  
-  .output-section {
-    transform: translateY(0);
-  }
-  
-  .output-section.visible {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* Logo and header section - reduced spacing */
-.logo {
-  width: 60px;
-  height: 60px;
-  margin-bottom: 1rem;
-}
-
-.logo img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
 }
 
 /* More responsive input section */
@@ -163,12 +120,25 @@ body {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-self: center; /* Center vertically instead of flex-start */
+  align-items: center; /* Center everything inside */
+  align-self: center;
+  text-align: center; /* Center text inside */
 }
 
-.input-section.shifted {
-  transform: translateX(-10%);
-  opacity: 0.8;
+/* Form styling - improved vertical spacing */
+#playlist-form {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  align-items: center; /* Center form content */
+}
+
+#playlist-form > div {
+  padding: 0;
+  width: 100%; /* Full width for form children */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Center align children */
 }
 
 /* More responsive output section */
@@ -183,23 +153,14 @@ body {
   z-index: 30;
   margin: 0 auto; /* Center horizontally */
   box-sizing: border-box;
-  align-self: center; /* Center vertically instead of flex-start */
+  align-self: center;
+  align-items: center; /* Center everything inside */
+  text-align: center; /* Center text inside */
 }
 
 .output-section.visible {
   transform: translateX(0);
   opacity: 1;
-}
-
-/* Form styling - improved vertical spacing */
-#playlist-form {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-}
-
-#playlist-form > div {
-  padding: 0; /* Remove the 5px padding */
 }
 
 /* Add custom text color classes to control main and subtext */
@@ -544,106 +505,90 @@ p.text-xl {
   pointer-events: none;
 }
 
+/* Improve responsive behavior for different viewport sizes */
 @media (max-width: 1200px) {
   .app-container {
     max-width: 95%;
-    gap: 15px; /* Further reduced gap */
+    gap: 40px; /* Slightly reduced gap */
   }
 }
 
-@media (max-width: 640px) {
+/* Tablet and smaller desktop viewports */
+@media (max-width: 960px) {
   .app-container {
-    padding: 0 10px;
-  }
-  
-  .playlist-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    gap: 40px; /* Maintain decent spacing between stacked elements */
+    padding-bottom: 4rem;
+    width: 90%;
+    margin-left: auto;
+    margin-right: auto;
   }
   
-  .playlist-cover {
-    width: 100px;
-    height: 100px;
+  .input-section, .output-section {
+    max-width: 600px;
+    width: 100%;
+    margin-bottom: 20px; /* Add space between stacked sections */
   }
   
-  .playlist-title {
-    font-size: 1.25rem;
+  .input-section.shifted {
+    transform: translateY(-5px);
+    opacity: 0.9;
   }
   
-  h1.text-5xl {
-    font-size: 2.5rem !important;
+  .output-section {
+    transform: translateY(20px); /* Start a bit lower when hidden */
   }
   
-  p.text-xl {
-    font-size: 1.1rem !important;
-  }
-  
-  .logo {
-    width: 60px;
-    height: 60px;
-    margin-bottom: 1rem;
-  }
-  
-  .playlist-textarea {
-    height: 180px;
-    margin-top: 1rem;
-  }
-  
-  .app-container {
-    margin-top: 1rem;
+  .output-section.visible {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 
-/* Add a maximum content width for extremely wide screens */
-@media (min-width: 1600px) {
-  .app-container {
-    max-width: 1400px;
-  }
-}
-
-.playlist-textarea:focus {
-  outline: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  z-index: 100 !important; /* Even higher when focused */
-}
-
-.btn:hover {
-  background-color: #1ED760;
-  transform: translateY(-2px);
-}
-
-/* Additional mobile-specific styles */
+/* Phone viewports */
 @media (max-width: 767px) {
   html, body {
     -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   }
   
   .flex.flex-col.items-center.justify-center.h-full {
-    justify-content: center; /* Restored to center from flex-start */
-    padding: 2rem 1rem 4rem;
-    display: flex;
+    justify-content: flex-start; /* Start from the top on mobile */
+    padding: 1rem 1rem 4rem;
+    padding-top: 2rem; /* Top spacing on mobile */
     min-height: 100vh;
     width: 100%;
   }
   
   .flex.flex-col.items-center.text-center.w-full {
-    justify-content: center; /* Restored to center from flex-start */
-    min-height: 85vh; /* Restored from auto to 85vh */
+    justify-content: flex-start; /* Start from the top on mobile */
+    min-height: auto;
     padding: 0;
-    margin-top: -2rem; /* Restored from 0 to -2rem */
+    margin-top: 0;
   }
   
   h1.text-5xl {
     font-size: 2.5rem !important; /* Smaller heading on mobile */
+    margin-top: 1rem;
   }
   
   .app-container {
     margin-top: 1.5rem;
     width: 100%;
+    gap: 30px; /* Slightly smaller gap on phones */
   }
   
+  .input-section, .output-section {
+    min-width: 100%;
+    max-width: 100%;
+    width: 100%;
+    margin-bottom: 10px;
+  }
+  
+  /* Ensure these don't collapse too much */
   .playlist-textarea {
     height: 150px; /* Slightly smaller textarea on mobile */
+    margin-bottom: 1rem;
   }
   
   /* Add more space for buttons on mobile */
@@ -652,20 +597,9 @@ p.text-xl {
     margin-bottom: 2rem;
   }
   
-  /* Ensure the bottom buttons are fully visible */
-  .btn-spotify, .btn-unfollow {
-    margin-bottom: 0.5rem;
-  }
-  
-  .input-section, .output-section {
-    min-width: 100%;
-    max-width: 100%;
-    width: 100%;
-  }
-  
-  .app-container {
-    width: 95%;
-    padding: 0 10px;
+  /* Styling for play button in playlist */
+  .playlist-viewer {
+    margin-top: 1rem;
   }
 }
 
