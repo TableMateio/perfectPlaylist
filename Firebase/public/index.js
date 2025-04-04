@@ -1706,9 +1706,17 @@ function unfollowPlaylist(playlistId) {
         setTimeout(() => {
           console.log("Starting animations for smooth transition");
           
-          // First shrink and fade the playlist container
+          // First shrink and fade the playlist container, but keep buttons visible
           const playlistSection = document.getElementById('playlist-info');
+          const buttonsElement = document.getElementById("playlist-buttons");
+          
           if (playlistSection) {
+            // Make sure buttons are hidden before animation starts
+            if (buttonsElement) {
+              buttonsElement.classList.add("unauthenticated");
+            }
+            
+            // Add class for fade-out animation
             playlistSection.classList.add('fade-out-container');
             
             // After container fades out

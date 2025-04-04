@@ -364,9 +364,10 @@ p.text-xl {
   justify-content: center;
   margin-bottom: 1.5rem;
   position: relative;
-  z-index: 50;
+  z-index: 100 !important; /* Increase z-index */
   pointer-events: auto !important;
   flex-wrap: nowrap; /* Prevent buttons from wrapping */
+  overflow: visible !important; /* Ensure buttons aren't hidden */
 }
 
 .playlist-buttons button {
@@ -509,13 +510,17 @@ p.text-xl {
 
 .fade-out-container {
   animation: fadeOutContainer 1s ease forwards;
-  overflow: hidden; /* Hide content during height animation */
+  overflow: visible !important; /* Change from hidden to visible */
 }
 
 /* Loading indicator text should match subtitle style */
 #loading {
-  color: #fff;
+  color: #144614; /* Match subtitle color */
   font-size: 1.1rem;
+}
+
+#loading div {
+  color: #144614; /* Ensure the text inside also matches */
 }
 
 /* Playlist Coming styles */
@@ -701,5 +706,6 @@ p.text-xl {
   transition: all 0.6s ease-out;
   height: auto;
   width: 100%;
-  overflow: hidden;
+  overflow: visible !important; /* Change from hidden to visible */
+  position: relative; /* Ensure proper stacking */
 } 
