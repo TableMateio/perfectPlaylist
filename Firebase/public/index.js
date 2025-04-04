@@ -254,7 +254,6 @@ async function setVideoBackground() {
     mainVideo.autoplay = true;
     mainVideo.muted = true;
     mainVideo.playsInline = true;
-    mainVideo.playbackRate = 0.5; // Play at half speed
     mainVideo.src = currentVideoObj.file;
     
     // Add to container
@@ -276,32 +275,11 @@ async function setVideoBackground() {
     nextVideo.style.zIndex = '2';
     nextVideo.muted = true;
     nextVideo.playsInline = true;
-    nextVideo.playbackRate = 0.5; // Play at half speed
     nextVideo.src = nextVideoObj.file;
     nextVideo.load(); // Preload the next video
     
     // Add to container
     container.appendChild(nextVideo);
-    
-    // Ensure playback rate is set for the next video too
-    nextVideo.addEventListener('loadeddata', () => {
-      nextVideo.playbackRate = 0.5;
-      console.log('Set next video playback rate to:', nextVideo.playbackRate);
-    });
-    
-    // Also set playback rate when next video begins playing
-    nextVideo.addEventListener('play', () => {
-      nextVideo.playbackRate = 0.5;
-      console.log('Reinforced next video playback rate to 0.5 on play event');
-    });
-    
-    // Monitor and fix next video playback rate if it changes
-    nextVideo.addEventListener('ratechange', () => {
-      if (nextVideo.playbackRate !== 0.5) {
-        console.log('Next video playback rate changed to', nextVideo.playbackRate, '- resetting to 0.5');
-        nextVideo.playbackRate = 0.5;
-      }
-    });
     
     console.log(`Setup main video: ${currentVideoObj.file}`);
     console.log(`Preloaded next video: ${nextVideoObj.file}`);
@@ -309,10 +287,6 @@ async function setVideoBackground() {
     // Handle main video loading and playback
     mainVideo.addEventListener('loadeddata', () => {
       console.log('Main video loaded and ready to play, duration:', mainVideo.duration);
-      
-      // Ensure playback rate is set to 0.5 (half speed)
-      mainVideo.playbackRate = 0.5;
-      console.log('Set main video playback rate to:', mainVideo.playbackRate);
       
       // Fade out the fallback image and fade in the video
       const fallbackImage = document.getElementById('video-fallback-image');
@@ -331,20 +305,6 @@ async function setVideoBackground() {
       setTimeout(() => {
         mainVideo.style.opacity = '1';
       }, 100);
-    });
-    
-    // Also set playback rate when playback begins
-    mainVideo.addEventListener('play', () => {
-      mainVideo.playbackRate = 0.5;
-      console.log('Reinforced playback rate to 0.5 on play event');
-    });
-    
-    // Monitor and fix playback rate if it changes
-    mainVideo.addEventListener('ratechange', () => {
-      if (mainVideo.playbackRate !== 0.5) {
-        console.log('Playback rate changed to', mainVideo.playbackRate, '- resetting to 0.5');
-        mainVideo.playbackRate = 0.5;
-      }
     });
     
     // Handle main video end
@@ -545,7 +505,6 @@ async function setVideoBackground() {
         newNextVideo.style.zIndex = '2';
         newNextVideo.muted = true;
         newNextVideo.playsInline = true;
-        newNextVideo.playbackRate = 0.5; // Play at half speed
         newNextVideo.src = newNextVideoObj.file;
         newNextVideo.load(); // Preload it
         
@@ -571,32 +530,6 @@ async function setVideoBackground() {
         // Set up event listeners for the new main video
         mainVideo.addEventListener('ended', handleVideoEnd);
         mainVideo.addEventListener('timeupdate', timeUpdateHandler);
-        
-        // Ensure new main video maintains half-speed playback
-        mainVideo.addEventListener('play', () => {
-          mainVideo.playbackRate = 0.5;
-        });
-        
-        mainVideo.addEventListener('ratechange', () => {
-          if (mainVideo.playbackRate !== 0.5) {
-            mainVideo.playbackRate = 0.5;
-          }
-        });
-        
-        // Ensure new next video maintains half-speed playback
-        nextVideo.addEventListener('loadeddata', () => {
-          nextVideo.playbackRate = 0.5;
-        });
-        
-        nextVideo.addEventListener('play', () => {
-          nextVideo.playbackRate = 0.5;
-        });
-        
-        nextVideo.addEventListener('ratechange', () => {
-          if (nextVideo.playbackRate !== 0.5) {
-            nextVideo.playbackRate = 0.5;
-          }
-        });
       }, 1000); // Wait for the crossfade to complete
     }
     
