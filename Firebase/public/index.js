@@ -1694,50 +1694,44 @@ function unfollowPlaylist(playlistId) {
         textBlock.innerHTML = 'Playlist removed from your Spotify.<br><br>Create a new playlist when you\'re ready!';
         playlistViewerDiv.appendChild(textBlock);
         
-        console.log("Setting up fade-out timer for playlist message");
+        console.log("Setting up fade-out timer for playlist container");
         
-        // Automatically fade out and remove the message after 5 seconds
+        // Automatically fade out the entire container after 3 seconds
         setTimeout(() => {
-          console.log("Applying fade-out class to message");
-          // First add the fade-out class for animation
-          textBlock.classList.add('fade-out');
+          console.log("Applying fade-out class to playlist container");
           
-          // Then after animation completes, remove the element entirely
-          setTimeout(() => {
-            console.log("Removing message element after fade-out");
-            // Check if the element still exists before removing
-            if (textBlock.parentNode) {
-              textBlock.remove();
-            }
+          // Apply the fade-out animation to the container
+          const playlistSection = document.getElementById('playlist-info');
+          if (playlistSection) {
+            playlistSection.classList.add('fade-out-container');
             
-            // Hide the empty playlist section after message is gone
-            const playlistSection = document.getElementById('playlist-info');
-            if (playlistSection) {
+            // After animation completes, hide the container
+            setTimeout(() => {
+              console.log("Hiding playlist container after fade-out");
               playlistSection.style.display = 'none';
-            }
-          }, 1600); // slightly longer than animation duration
-        }, 5000); // wait 5 seconds before starting to fade out
+              playlistSection.classList.remove('fade-out-container');
+            }, 1000); // Same as animation duration
+          }
+          
+          // Reset the UI state
+          document.body.classList.remove('playlist-visible');
+          
+          // Highlight the textarea to draw attention back to it
+          const textarea = document.getElementById('playlist-description-input');
+          if (textarea) {
+            textarea.value = '';
+            textarea.classList.add('highlight-input');
+            setTimeout(() => {
+              textarea.classList.remove('highlight-input');
+            }, 1500);
+          }
+        }, 3000); // Shorter delay for better UX
       }
       
-      // Hide the buttons
+      // Hide the buttons immediately
       const element = document.getElementById("playlist-buttons");
       if (element) {
         element.classList.add("unauthenticated");
-      }
-      
-      // Reset the UI state
-      document.body.classList.remove('playlist-visible');
-      
-      // Reset input field for next playlist
-      const textarea = document.getElementById('playlist-description-input');
-      if (textarea) {
-        textarea.value = '';
-        
-        // Subtly highlight the textarea to draw attention back to it
-        textarea.classList.add('highlight-input');
-        setTimeout(() => {
-          textarea.classList.remove('highlight-input');
-        }, 1500);
       }
     } else {
       throw new Error(`Failed to unfollow playlist. Status: ${response.status}`);
