@@ -1706,13 +1706,17 @@ function unfollowPlaylist(playlistId) {
         textBlock.innerHTML = 'Playlist removed from your Spotify.<br><br>Create a new playlist when you\'re ready!';
         playlistViewerDiv.appendChild(textBlock);
         
+        console.log("Setting up fade-out timer for playlist message");
+        
         // Automatically fade out and remove the message after 5 seconds
         setTimeout(() => {
+          console.log("Applying fade-out class to message");
           // First add the fade-out class for animation
           textBlock.classList.add('fade-out');
           
           // Then after animation completes, remove the element entirely
           setTimeout(() => {
+            console.log("Removing message element after fade-out");
             // Check if the element still exists before removing
             if (textBlock.parentNode) {
               textBlock.remove();

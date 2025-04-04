@@ -502,12 +502,13 @@ p.text-xl {
 
 /* Fade out animation for playlist message */
 @keyframes fadeOut {
-  0% { opacity: 1; }
-  100% { opacity: 0; }
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-20px); }
 }
 
 .fade-out {
   animation: fadeOut 1.5s ease forwards;
+  pointer-events: none; /* Prevent interaction during fade-out */
 }
 
 /* Playlist Coming styles */
@@ -523,7 +524,7 @@ p.text-xl {
   font-size: 1.1rem;
   line-height: 1.5;
   width: 100%;
-  transition: opacity 1.5s ease;
+  transition: opacity 1.5s ease, transform 1.5s ease;
 }
 
 /* Add debugging support to help visualize what's happening */
