@@ -140,6 +140,7 @@ body {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  align-self: flex-start;
 }
 
 .input-section.shifted {
@@ -159,6 +160,7 @@ body {
   z-index: 30;
   margin: 0;
   box-sizing: border-box;
+  align-self: flex-start;
 }
 
 .output-section.visible {
@@ -364,13 +366,20 @@ p.text-xl {
   position: relative;
   z-index: 50;
   pointer-events: auto !important;
-  flex-wrap: wrap; /* Allow buttons to wrap */
+  flex-wrap: nowrap; /* Prevent buttons from wrapping */
+}
+
+.playlist-buttons button {
+  flex: 1;
+  min-width: auto;
+  white-space: nowrap;
 }
 
 @media (max-width: 480px) {
   .playlist-buttons {
     flex-direction: column;
     width: 100%;
+    flex-wrap: wrap;
   }
   
   .playlist-buttons button {
