@@ -129,9 +129,41 @@ const examplePlaylists = [
 // Background images to randomly select from
 const backgroundImages = []; // Will be populated from images/list.json
 
+// Background videos to randomly select from
+const backgroundVideos = []; // Will be populated from videos/list.json
+
+// Store the current background preference in localStorage
+const BACKGROUND_PREF_KEY = 'backgroundPreference';
+
 // Function to set a random background
 async function setRandomBackground() {
+  // Check if we should use video or image background
+  const useVideo = localStorage.getItem(BACKGROUND_PREF_KEY) === 'video';
+  
+  if (useVideo) {
+    await setRandomVideoBackground();
+  } else {
+    await setRandomImageBackground();
+  }
+}
+
+// Function to set a random image background
+async function setRandomImageBackground() {
   try {
+    // Hide video element if it's showing
+    const videoElement = document.querySelector('.bg-video');
+    if (videoElement) {
+      videoElement.style.display = 'none';
+      // Pause the video to save resources
+      videoElement.pause();
+    }
+    
+    // Show the static background div
+    const bgAppElement = document.querySelector('.bg-app');
+    if (bgAppElement) {
+      bgAppElement.style.display = 'block';
+    }
+    
     // Fetch the list of background images from JSON file
     const response = await fetch('images/list.json');
     if (!response.ok) {
@@ -148,12 +180,11 @@ async function setRandomBackground() {
     if (imageList.length > 0) {
       const randomIndex = Math.floor(Math.random() * imageList.length);
       const selectedImage = imageList[randomIndex];
-      const bgAppElement = document.querySelector('.bg-app');
       
       if (bgAppElement) {
         // Set background with no overlay (0 opacity)
         bgAppElement.style.backgroundImage = `url('${selectedImage}')`;
-        console.log(`Set background to: ${selectedImage}`);
+        console.log(`Set background image to: ${selectedImage}`);
       } else {
         console.error('No .bg-app element found to set background image');
       }
@@ -162,8 +193,65 @@ async function setRandomBackground() {
       fallbackToDefaultBackground();
     }
   } catch (error) {
-    console.error('Error setting random background:', error);
+    console.error('Error setting random image background:', error);
     fallbackToDefaultBackground();
+  }
+}
+
+// Function to set a random video background
+async function setRandomVideoBackground() {
+  try {
+    // Hide the static background div
+    const bgAppElement = document.querySelector('.bg-app');
+    if (bgAppElement) {
+      bgAppElement.style.display = 'none';
+    }
+    
+    // Get the video element
+    const videoElement = document.querySelector('.bg-video');
+    if (!videoElement) {
+      throw new Error('No video element found');
+    }
+    
+    // Fetch the list of background videos from JSON file
+    const response = await fetch('videos/list.json');
+    if (!response.ok) {
+      throw new Error(`Failed to fetch video list: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    const videoList = data.videos || [];
+    
+    // Update our backgroundVideos array with the fetched videos
+    backgroundVideos.length = 0; // Clear the array
+    backgroundVideos.push(...videoList); // Add all videos from JSON
+    
+    if (videoList.length > 0) {
+      const randomIndex = Math.floor(Math.random() * videoList.length);
+      const selectedVideo = videoList[randomIndex];
+      
+      // Set video source and make it visible
+      videoElement.src = selectedVideo;
+      videoElement.style.display = 'block';
+      
+      // Ensure video plays
+      videoElement.load();
+      videoElement.play().catch(err => {
+        console.error('Error playing video:', err);
+        // Fall back to image if video fails to play
+        setRandomImageBackground();
+      });
+      
+      console.log(`Set background video to: ${selectedVideo}`);
+    } else {
+      console.error('No background videos found in the JSON file');
+      // Fall back to image background
+      setRandomImageBackground();
+    }
+  } catch (error) {
+    console.error('Error setting random video background:', error);
+    // Fall back to image background
+    setRandomImageBackground();
   }
 }
 
@@ -174,6 +262,19 @@ function fallbackToDefaultBackground() {
     const defaultImage = 'images/mrparniple_A_blurry_out-of-focus_photograph_of_flowers_and_pl_b8c1be6d-943d-4edb-8b18-9f32b16d8363_0.png';
     bgAppElement.style.backgroundImage = `url('${defaultImage}')`;
     console.log(`Using fallback background: ${defaultImage}`);
+  }
+}
+
+// Function to toggle between video and image backgrounds
+function toggleBackgroundType(useVideo) {
+  // Save preference
+  localStorage.setItem(BACKGROUND_PREF_KEY, useVideo ? 'video' : 'image');
+  
+  // Update the background
+  if (useVideo) {
+    setRandomVideoBackground();
+  } else {
+    setRandomImageBackground();
   }
 }
 
@@ -204,7 +305,21 @@ document.addEventListener("DOMContentLoaded", () => {
   // Rotate examples every 5 seconds
   setInterval(rotateExamplePrompts, 5000);
   
-  // Set random background image once (no rotation)
+  // Initialize background toggle
+  const bgToggle = document.getElementById('bg-toggle');
+  if (bgToggle) {
+    // Set initial state based on localStorage
+    const savedPreference = localStorage.getItem(BACKGROUND_PREF_KEY);
+    const useVideo = savedPreference === 'video';
+    bgToggle.checked = useVideo;
+    
+    // Add event listener for toggle changes
+    bgToggle.addEventListener('change', (e) => {
+      toggleBackgroundType(e.target.checked);
+    });
+  }
+  
+  // Set random background based on saved preference
   setRandomBackground();
   
   console.log('DOMContentLoaded event fired - backgrounds and examples initialized');
