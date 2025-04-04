@@ -243,6 +243,15 @@ async function setVideoBackground() {
     // Get the container element
     const container = document.querySelector('#background-video-container');
     
+    // Make sure container is properly styled for full coverage
+    container.style.position = 'fixed';
+    container.style.top = '0';
+    container.style.left = '0';
+    container.style.width = '100%';
+    container.style.height = '100%';
+    container.style.zIndex = '-2';
+    container.style.overflow = 'hidden';
+    
     // Setup Bideo
     bideo.init({
       // Video element
@@ -280,7 +289,11 @@ async function setVideoBackground() {
       // Called when video is loaded and ready
       onLoad: () => {
         console.log('Video loaded, ready to play');
-        document.querySelector('.bideo-container video').style.opacity = 1;
+        // Fix the selector to match what Bideo.js creates
+        const videoElement = container.querySelector('video');
+        if (videoElement) {
+          videoElement.style.opacity = 1;
+        }
       },
       
       // Called when current video ends
@@ -293,15 +306,6 @@ async function setVideoBackground() {
         bideo.switchVideo(currentVideoIndex, 1000);
       }
     });
-    
-    // Apply some custom styling to the container
-    container.style.position = 'fixed';
-    container.style.top = '0';
-    container.style.left = '0';
-    container.style.width = '100%';
-    container.style.height = '100%';
-    container.style.zIndex = '-2';
-    container.style.overflow = 'hidden';
     
     console.log('Bideo.js initialized with videos:', backgroundVideos);
   } catch (error) {
