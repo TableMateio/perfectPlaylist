@@ -271,9 +271,9 @@ async function setVideoBackground() {
       
       // Add event listener for when current video is about to end
       videoElement.ontimeupdate = () => {
-        // When current video is 0.5 seconds from ending, start transition
+        // When current video is 0.2 seconds from ending, start transition
         // This gives us time for the crossfade before the video actually ends
-        if (videoElement.duration - videoElement.currentTime <= 0.6 && videoElement.duration > 0) {
+        if (videoElement.duration - videoElement.currentTime <= 0.2 && videoElement.duration > 0) {
           // Remove the timeupdate listener to prevent multiple triggers
           videoElement.ontimeupdate = null;
           
