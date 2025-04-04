@@ -254,6 +254,7 @@ async function setVideoBackground() {
     mainVideo.autoplay = true;
     mainVideo.muted = true;
     mainVideo.playsInline = true;
+    mainVideo.playbackRate = 0.5; // Play at half speed
     mainVideo.src = currentVideoObj.file;
     
     // Add to container
@@ -275,6 +276,7 @@ async function setVideoBackground() {
     nextVideo.style.zIndex = '2';
     nextVideo.muted = true;
     nextVideo.playsInline = true;
+    nextVideo.playbackRate = 0.5; // Play at half speed
     nextVideo.src = nextVideoObj.file;
     nextVideo.load(); // Preload the next video
     
@@ -505,6 +507,7 @@ async function setVideoBackground() {
         newNextVideo.style.zIndex = '2';
         newNextVideo.muted = true;
         newNextVideo.playsInline = true;
+        newNextVideo.playbackRate = 0.5; // Play at half speed
         newNextVideo.src = newNextVideoObj.file;
         newNextVideo.load(); // Preload it
         
