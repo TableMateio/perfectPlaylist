@@ -125,18 +125,167 @@ const examplePlaylists = [
   "songs with incredible bass lines"
 ];
 
-// Background images to randomly select from
-const backgroundImages = []; // Will be populated from images/list.json
-
 // Shared variables
 let playedVideoCount = 0;
 const backgroundVideos = [];
+const backgroundImages = []; // Will be populated from images/list.json
 const BACKGROUND_PREF_KEY = 'perfectPlaylist_backgroundPreference';
 
 // Function to set a random background
 async function setRandomBackground() {
-  // We're now always using the video background with image fallbacks
-  await setVideoBackground();
+  // Get user preference or default to video
+  const preference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'video';
+  
+  if (preference === 'image') {
+    await setImageBackground();
+  } else {
+    await setVideoBackground();
+  }
+}
+
+// New function to set image backgrounds
+async function setImageBackground() {
+  try {
+    console.log("Starting image background setup");
+    
+    // Hide the static background div
+    const bgAppElement = document.querySelector('.bg-app');
+    if (bgAppElement) {
+      bgAppElement.style.display = 'none';
+    }
+    
+    // Clear and prepare the container
+    const container = document.querySelector('#background-video-container');
+    if (!container) {
+      throw new Error('Background container not found');
+    }
+    
+    // Clear any existing content
+    container.innerHTML = '';
+    
+    // If this is the first time, fetch the image list
+    if (backgroundImages.length === 0) {
+      // Fetch the list of background images from JSON file
+      const response = await fetch('images/list.json');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image list: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const imageList = data.images || [];
+      
+      // Update our backgroundImages array with the fetched images
+      backgroundImages.length = 0; // Clear the array
+      backgroundImages.push(...imageList); // Add all images from JSON
+      
+      if (imageList.length === 0) {
+        throw new Error('No background images found in the JSON file');
+      }
+      
+      console.log(`Loaded ${imageList.length} images from list.json`);
+    }
+    
+    // Make sure we have images to work with
+    if (backgroundImages.length === 0) {
+      throw new Error('No background images available');
+    }
+    
+    // Set up initial image 
+    let currentIndex = Math.floor(Math.random() * backgroundImages.length);
+    let nextIndex = (currentIndex + 1) % backgroundImages.length;
+    
+    // Create main image element
+    const mainImage = document.createElement('div');
+    mainImage.id = 'main-background-image';
+    mainImage.style.position = 'absolute';
+    mainImage.style.top = '0';
+    mainImage.style.left = '0';
+    mainImage.style.width = '100%';
+    mainImage.style.height = '100%';
+    mainImage.style.backgroundImage = `url('${backgroundImages[currentIndex]}')`;
+    mainImage.style.backgroundSize = 'cover';
+    mainImage.style.backgroundPosition = 'center';
+    mainImage.style.zIndex = '1';
+    mainImage.style.opacity = '1';
+    mainImage.style.transition = 'opacity 2s ease-in-out';
+    
+    // Create next image element (initially hidden)
+    const nextImage = document.createElement('div');
+    nextImage.id = 'next-background-image';
+    nextImage.style.position = 'absolute';
+    nextImage.style.top = '0';
+    nextImage.style.left = '0';
+    nextImage.style.width = '100%';
+    nextImage.style.height = '100%';
+    nextImage.style.backgroundImage = `url('${backgroundImages[nextIndex]}')`;
+    nextImage.style.backgroundSize = 'cover';
+    nextImage.style.backgroundPosition = 'center';
+    nextImage.style.zIndex = '0';
+    nextImage.style.opacity = '0';
+    nextImage.style.transition = 'opacity 2s ease-in-out';
+    
+    // Add images to container
+    container.appendChild(nextImage);
+    container.appendChild(mainImage);
+    
+    console.log(`Setup main image: ${backgroundImages[currentIndex]}`);
+    console.log(`Prepared next image: ${backgroundImages[nextIndex]}`);
+    
+    // Start the image transition interval
+    let imageInterval = setInterval(() => {
+      // Update indices
+      currentIndex = nextIndex;
+      nextIndex = (nextIndex + 1) % backgroundImages.length;
+      
+      // Get the elements (they might have been replaced)
+      const mainImage = document.getElementById('main-background-image');
+      const nextImage = document.getElementById('next-background-image');
+      
+      if (!mainImage || !nextImage) {
+        // Elements not found - background mode may have changed
+        clearInterval(imageInterval);
+        return;
+      }
+      
+      // Set the next image source
+      nextImage.style.backgroundImage = `url('${backgroundImages[nextIndex]}')`;
+      
+      // Fade in the next image
+      nextImage.style.zIndex = '1';
+      nextImage.style.opacity = '1';
+      
+      // Fade out the main image
+      mainImage.style.zIndex = '0';
+      mainImage.style.opacity = '0';
+      
+      // After transition, swap the elements
+      setTimeout(() => {
+        // If elements still exist (mode hasn't changed)
+        if (document.getElementById('main-background-image') && document.getElementById('next-background-image')) {
+          // Update the main image for the next cycle
+          mainImage.style.backgroundImage = `url('${backgroundImages[currentIndex]}')`;
+          mainImage.style.zIndex = '1';
+          mainImage.style.opacity = '1';
+          
+          // Reset the next image
+          nextImage.style.zIndex = '0';
+          nextImage.style.opacity = '0';
+          
+          console.log(`Transitioned to image: ${backgroundImages[currentIndex]}`);
+          console.log(`Prepared next image: ${backgroundImages[nextIndex]}`);
+        }
+      }, 2000); // Wait for the crossfade to complete
+    }, 8000); // Change image every 8 seconds
+    
+    // Store the interval ID on the window object so it can be cleared if needed
+    window.currentBackgroundInterval = imageInterval;
+    
+    return true;
+  } catch (error) {
+    console.error('Error setting image background:', error);
+    // If there's an error with image backgrounds, fall back to video
+    return fallbackToDefaultBackground();
+  }
 }
 
 // Enhanced video background implementation
@@ -689,6 +838,101 @@ document.addEventListener("DOMContentLoaded", () => {
       logger.innerHTML += `<p class="log-lines" style="color: red;">${formattedArgs.join(' ')}</p>`;
     };
   }());
+
+  // Add background toggle control
+  const controlsContainer = document.createElement('div');
+  controlsContainer.id = 'background-controls';
+  controlsContainer.className = 'absolute bottom-4 right-4';
+  controlsContainer.style.zIndex = '100';
+  
+  // Get current preference or default to video
+  const currentPreference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'video';
+  
+  // Create toggle switch
+  controlsContainer.innerHTML = `
+    <div class="bg-toggle p-2 rounded-lg bg-black bg-opacity-50 text-white text-xs flex items-center">
+      <span class="mr-2">Background:</span>
+      <label class="switch">
+        <input type="checkbox" id="background-toggle" ${currentPreference === 'image' ? 'checked' : ''}>
+        <span class="slider round"></span>
+      </label>
+      <span class="ml-2">${currentPreference === 'image' ? 'Images' : 'Video'}</span>
+    </div>
+  `;
+  
+  document.body.appendChild(controlsContainer);
+  
+  // Add event listener for toggle switch
+  document.getElementById('background-toggle').addEventListener('change', async (e) => {
+    const newPreference = e.target.checked ? 'image' : 'video';
+    localStorage.setItem(BACKGROUND_PREF_KEY, newPreference);
+    
+    // Update label text
+    e.target.parentNode.nextElementSibling.textContent = newPreference === 'image' ? 'Images' : 'Video';
+    
+    // Clear any existing interval
+    if (window.currentBackgroundInterval) {
+      clearInterval(window.currentBackgroundInterval);
+      window.currentBackgroundInterval = null;
+    }
+    
+    // Apply the new background
+    setRandomBackground().catch(err => {
+      console.error("Error changing background:", err);
+    });
+  });
+});
+
+// Add styles for the toggle switch to the head of the document
+document.addEventListener("DOMContentLoaded", () => {
+  const style = document.createElement('style');
+  style.textContent = `
+    /* Toggle Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #144614;
+      transition: .4s;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .4s;
+    }
+    input:checked + .slider {
+      background-color: #7d4cb0;
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+    .slider.round {
+      border-radius: 34px;
+    }
+    .slider.round:before {
+      border-radius: 50%;
+    }
+  `;
+  document.head.appendChild(style);
 });
 
 // Determine environment based on the current hostname
