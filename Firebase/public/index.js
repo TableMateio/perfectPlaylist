@@ -262,61 +262,31 @@ async function setVideoBackground() {
       const nextIndex = (currentVideoIndex + 1) % backgroundVideos.length;
       const nextVideo = backgroundVideos[nextIndex];
       
-      // Preload the next video
-      if (nextVideoElement.src !== new URL(nextVideo, window.location.href).href) {
+      // Add event listener for when current video ends
+      videoElement.onended = () => {
+        console.log(`Video ${currentVideoIndex + 1} ended, switching to video ${nextIndex + 1}`);
+        
+        // Update the index for the next cycle
+        currentVideoIndex = nextIndex;
+        
+        // Load the next video with no transition
         nextVideoElement.src = nextVideo;
+        nextVideoElement.style.display = 'block';
+        nextVideoElement.style.opacity = '1';
+        
+        // Start playing the next video immediately
         nextVideoElement.load();
-        // Don't play it yet, just load it
-      }
-      
-      // Add event listener for when current video is about to end
-      videoElement.ontimeupdate = () => {
-        // When current video is 0.2 seconds from ending, start transition
-        // This gives us time for the crossfade before the video actually ends
-        if (videoElement.duration - videoElement.currentTime <= 0.2 && videoElement.duration > 0) {
-          // Remove the timeupdate listener to prevent multiple triggers
-          videoElement.ontimeupdate = null;
-          
-          // Begin crossfade to next video
-          console.log(`Transitioning from video ${currentVideoIndex + 1} to ${nextIndex + 1}`);
-          
-          // Start crossfade animation
-          setTimeout(() => {
-            // Make the next video visible but with 0 opacity
-            nextVideoElement.style.display = 'block';
-            nextVideoElement.style.opacity = '0';
-            
-            // IMPORTANT: Start playing the next video at the exact moment we begin the crossfade
-            // This ensures the first frame of the next video appears during the transition
-            nextVideoElement.play().catch(err => {
-              console.error('Error playing next video:', err);
-            });
-            
-            // Immediately trigger the opacity transition after the video starts playing
-            // Use requestAnimationFrame to ensure DOM updates have processed
-            requestAnimationFrame(() => {
-              // Fade out current video
-              videoElement.style.opacity = '0';
-              // Fade in next video
-              nextVideoElement.style.opacity = '1';
-            });
-            
-            // After transition completes, swap the roles of the videos
-            setTimeout(() => {
-              // Increment the index for the next cycle
-              currentVideoIndex = nextIndex;
-              
-              // Swap the video elements (current becomes next, next becomes current)
-              [videoElement.className, nextVideoElement.className] = [nextVideoElement.className, videoElement.className];
-              
-              // Recursively call this function to set up the next transition
-              // But we use setTimeout to ensure we don't stack calls too quickly
-              setTimeout(() => {
-                setVideoBackground();
-              }, 50);
-            }, 500); // Match the transition time in CSS
-          }, 0);
-        }
+        nextVideoElement.play().catch(err => {
+          console.error('Error playing next video:', err);
+        });
+        
+        // Swap the elements' roles
+        [videoElement.className, nextVideoElement.className] = [nextVideoElement.className, videoElement.className];
+        
+        // Call this function again to set up the next video
+        setTimeout(() => {
+          setVideoBackground();
+        }, 50);
       };
       
       console.log(`Playing background video ${currentVideoIndex + 1}/${backgroundVideos.length}: ${selectedVideo}`);
