@@ -1705,6 +1705,26 @@ function unfollowPlaylist(playlistId) {
         textBlock.className = 'playlist-coming';
         textBlock.innerHTML = 'Playlist removed from your Spotify.<br><br>Create a new playlist when you\'re ready!';
         playlistViewerDiv.appendChild(textBlock);
+        
+        // Automatically fade out and remove the message after 5 seconds
+        setTimeout(() => {
+          // First add the fade-out class for animation
+          textBlock.classList.add('fade-out');
+          
+          // Then after animation completes, remove the element entirely
+          setTimeout(() => {
+            // Check if the element still exists before removing
+            if (textBlock.parentNode) {
+              textBlock.remove();
+            }
+            
+            // Hide the empty playlist section after message is gone
+            const playlistSection = document.getElementById('playlist-info');
+            if (playlistSection) {
+              playlistSection.style.display = 'none';
+            }
+          }, 1600); // slightly longer than animation duration
+        }, 5000); // wait 5 seconds before starting to fade out
       }
       
       // Hide the buttons

@@ -500,6 +500,16 @@ p.text-xl {
   margin-top: 0.5rem;
 }
 
+/* Fade out animation for playlist message */
+@keyframes fadeOut {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.fade-out {
+  animation: fadeOut 1.5s ease forwards;
+}
+
 /* Playlist Coming styles */
 .playlist-coming {
   text-align: center;
@@ -513,6 +523,7 @@ p.text-xl {
   font-size: 1.1rem;
   line-height: 1.5;
   width: 100%;
+  transition: opacity 1.5s ease;
 }
 
 /* Add debugging support to help visualize what's happening */
