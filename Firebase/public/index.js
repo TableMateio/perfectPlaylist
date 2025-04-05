@@ -130,7 +130,6 @@ let playedVideoCount = 0;
 const backgroundVideos = [];
 const backgroundImages = []; // Will be populated from images/list.json
 const BACKGROUND_PREF_KEY = 'perfectPlaylist_backgroundPreference';
-const VIDEO_SPEED_PREF_KEY = 'perfectPlaylist_videoSpeedPreference';
 
 // Function to set a random background
 async function setRandomBackground() {
@@ -144,16 +143,10 @@ async function setRandomBackground() {
   }
 }
 
-// For image background: Fix the initialization and ensure proper cleanup
+// New function to set image backgrounds
 async function setImageBackground() {
   try {
     console.log("Starting image background setup");
-    
-    // Clear any existing interval first to prevent memory leaks
-    if (window.currentBackgroundInterval) {
-      clearInterval(window.currentBackgroundInterval);
-      window.currentBackgroundInterval = null;
-    }
     
     // Hide the static background div
     const bgAppElement = document.querySelector('.bg-app');
@@ -172,29 +165,24 @@ async function setImageBackground() {
     
     // If this is the first time, fetch the image list
     if (backgroundImages.length === 0) {
-      try {
-        // Fetch the list of background images from JSON file
-        const response = await fetch('images/list.json');
-        if (!response.ok) {
-          throw new Error(`Failed to fetch image list: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        const imageList = data.images || [];
-        
-        // Update our backgroundImages array with the fetched images
-        backgroundImages.length = 0; // Clear the array
-        backgroundImages.push(...imageList); // Add all images from JSON
-        
-        if (imageList.length === 0) {
-          throw new Error('No background images found in the JSON file');
-        }
-        
-        console.log(`Loaded ${imageList.length} images from list.json`);
-      } catch (error) {
-        console.error('Error loading image list:', error);
-        throw error;
+      // Fetch the list of background images from JSON file
+      const response = await fetch('images/list.json');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image list: ${response.status} ${response.statusText}`);
       }
+      
+      const data = await response.json();
+      const imageList = data.images || [];
+      
+      // Update our backgroundImages array with the fetched images
+      backgroundImages.length = 0; // Clear the array
+      backgroundImages.push(...imageList); // Add all images from JSON
+      
+      if (imageList.length === 0) {
+        throw new Error('No background images found in the JSON file');
+      }
+      
+      console.log(`Loaded ${imageList.length} images from list.json`);
     }
     
     // Make sure we have images to work with
@@ -207,29 +195,6 @@ async function setImageBackground() {
     const positions = [0, 1, 2]; // Tracking positions in rotation
     let activeIndex = 0; // Currently visible image (fully opaque)
     let currentImageIndex = Math.floor(Math.random() * backgroundImages.length);
-    
-    try {
-      // Preload first few images to avoid loading delays during transitions
-      console.log("Preloading initial images...");
-      const preloadPromises = [];
-      for (let i = 0; i < Math.min(3, backgroundImages.length); i++) {
-        const imgIndex = (currentImageIndex + i) % backgroundImages.length;
-        const preloadPromise = new Promise((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => resolve(img);
-          img.onerror = () => reject(new Error(`Failed to preload image: ${backgroundImages[imgIndex]}`));
-          img.src = backgroundImages[imgIndex];
-        });
-        preloadPromises.push(preloadPromise);
-      }
-      
-      // Wait for initial images to load
-      await Promise.all(preloadPromises);
-      console.log("Initial images preloaded successfully");
-    } catch (preloadError) {
-      console.warn("Some images failed to preload:", preloadError);
-      // Continue anyway - the browser will try to load them when needed
-    }
     
     // Create three image elements (only one visible initially)
     for (let i = 0; i < 3; i++) {
@@ -260,65 +225,49 @@ async function setImageBackground() {
     
     console.log(`Setup initial image: ${backgroundImages[currentImageIndex]}`);
     
-    // Start crossfade animation
+    // Start continuous crossfade animation
     const doCrossfade = () => {
-      try {
-        // Get current positions
-        const currentPos = positions[activeIndex];
-        const nextPos = (activeIndex + 1) % 3;
-        const thirdPos = (activeIndex + 2) % 3;
-        
-        // Ensure elements still exist
-        if (!imageElements[currentPos] || !imageElements[nextPos] || !imageElements[thirdPos]) {
-          console.warn("Image elements missing, crossfade halted");
-          clearInterval(window.currentBackgroundInterval);
-          return;
-        }
-        
-        // Current visible image
-        const currentElement = imageElements[currentPos];
-        
-        // Next image to fade in
-        const nextElement = imageElements[nextPos];
-        
-        // Third element to prepare
-        const thirdElement = imageElements[thirdPos];
-        
-        // Get the next image index
-        currentImageIndex = (Number.parseInt(currentElement.dataset.imageIndex) + 1) % backgroundImages.length;
-        const nextImageIndex = (currentImageIndex + 1) % backgroundImages.length;
-        
-        // Preload the next image in advance
-        const nextNextImage = new Image();
-        nextNextImage.src = backgroundImages[nextImageIndex];
-        
-        // Update the third element with the next image
-        thirdElement.style.opacity = '0';
-        thirdElement.style.backgroundImage = `url('${backgroundImages[nextImageIndex]}')`;
-        thirdElement.dataset.imageIndex = nextImageIndex.toString();
-        
-        // Log the transition
-        console.log(`Starting crossfade to: ${backgroundImages[currentImageIndex]}`);
-        
-        // Begin crossfade
-        nextElement.style.backgroundImage = `url('${backgroundImages[currentImageIndex]}')`;
-        nextElement.dataset.imageIndex = currentImageIndex.toString();
-        nextElement.style.zIndex = '2';
-        currentElement.style.zIndex = '1';
-        
-        // Ensure the third element is behind both
-        thirdElement.style.zIndex = '0';
-        
-        // Start the actual fade
-        nextElement.style.opacity = '1';
-        currentElement.style.opacity = '0';
-        
-        // Update tracking
-        activeIndex = nextPos;
-      } catch (error) {
-        console.error("Error during image crossfade:", error);
-        // Don't stop the interval - try again next time
-      }
+      // Get current positions
+      const currentPos = positions[activeIndex];
+      const nextPos = (activeIndex + 1) % 3;
+      const thirdPos = (activeIndex + 2) % 3;
+      
+      // Current visible image
+      const currentElement = imageElements[currentPos];
+      
+      // Next image to fade in
+      const nextElement = imageElements[nextPos];
+      
+      // Third element to prepare
+      const thirdElement = imageElements[thirdPos];
+      
+      // Get the next image index
+      currentImageIndex = (Number.parseInt(currentElement.dataset.imageIndex) + 1) % backgroundImages.length;
+      const nextImageIndex = (currentImageIndex + 1) % backgroundImages.length;
+      
+      // Update the third element with the next image
+      thirdElement.style.opacity = '0';
+      thirdElement.style.backgroundImage = `url('${backgroundImages[nextImageIndex]}')`;
+      thirdElement.dataset.imageIndex = nextImageIndex.toString();
+      
+      // Log the transition
+      console.log(`Starting crossfade to: ${backgroundImages[currentImageIndex]}`);
+      
+      // Begin crossfade
+      nextElement.style.backgroundImage = `url('${backgroundImages[currentImageIndex]}')`;
+      nextElement.dataset.imageIndex = currentImageIndex.toString();
+      nextElement.style.zIndex = '2';
+      currentElement.style.zIndex = '1';
+      
+      // Ensure the third element is behind both
+      thirdElement.style.zIndex = '0';
+      
+      // Start the actual fade
+      nextElement.style.opacity = '1';
+      currentElement.style.opacity = '0';
+      
+      // Update tracking
+      activeIndex = nextPos;
     };
     
     // Start the crossfades with pattern: stay still for 10 seconds, then transition over 4 seconds
@@ -335,21 +284,10 @@ async function setImageBackground() {
   }
 }
 
-// For video background: Enhance error handling and prevent stops
+// Enhanced video background implementation
 async function setVideoBackground() {
   try {
     console.log("Starting video background setup");
-    
-    // Clear any existing interval first
-    if (window.currentBackgroundInterval) {
-      clearInterval(window.currentBackgroundInterval);
-      window.currentBackgroundInterval = null;
-    }
-    
-    // Get video speed preference or default to normal
-    const speedPreference = localStorage.getItem(VIDEO_SPEED_PREF_KEY) || 'normal';
-    const playbackRate = speedPreference === 'slow' ? 0.5 : 1.0;
-    console.log(`Using video playback speed: ${playbackRate}x (${speedPreference} mode)`);
     
     // Hide the static background div
     const bgAppElement = document.querySelector('.bg-app');
@@ -368,29 +306,24 @@ async function setVideoBackground() {
     
     // If this is the first time, fetch the video list
     if (backgroundVideos.length === 0) {
-      try {
-        // Fetch the list of background videos from JSON file
-        const response = await fetch('videos/list.json');
-        if (!response.ok) {
-          throw new Error(`Failed to fetch video list: ${response.status} ${response.statusText}`);
-        }
-        
-        const data = await response.json();
-        const videoList = data.videos || [];
-        
-        // Update our backgroundVideos array with the fetched videos
-        backgroundVideos.length = 0; // Clear the array
-        backgroundVideos.push(...videoList); // Add all videos from JSON
-        
-        if (videoList.length === 0) {
-          throw new Error('No background videos found in the JSON file');
-        }
-        
-        console.log(`Loaded ${videoList.length} videos from list.json`);
-      } catch (error) {
-        console.error('Error loading video list:', error);
-        throw error;
+      // Fetch the list of background videos from JSON file
+      const response = await fetch('videos/list.json');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch video list: ${response.status} ${response.statusText}`);
       }
+      
+      const data = await response.json();
+      const videoList = data.videos || [];
+      
+      // Update our backgroundVideos array with the fetched videos
+      backgroundVideos.length = 0; // Clear the array
+      backgroundVideos.push(...videoList); // Add all videos from JSON
+      
+      if (videoList.length === 0) {
+        throw new Error('No background videos found in the JSON file');
+      }
+      
+      console.log(`Loaded ${videoList.length} videos from list.json`);
     }
     
     // Make sure we have videos to work with
@@ -438,7 +371,6 @@ async function setVideoBackground() {
     fallbackImage.style.left = '0';
     fallbackImage.style.width = '100%';
     fallbackImage.style.height = '100%';
-    fallbackImage.style.backgroundColor = '#000'; // Black background instead of white
     fallbackImage.style.backgroundImage = `url('${currentVideoObj.startImage}')`;
     fallbackImage.style.backgroundSize = 'cover';
     fallbackImage.style.backgroundPosition = 'center';
@@ -450,10 +382,7 @@ async function setVideoBackground() {
     container.appendChild(fallbackImage);
     console.log(`Showing fallback image ${currentVideoObj.startImage} while video loads`);
     
-    // Set background color of container to black to avoid white flashes
-    container.style.backgroundColor = '#000000';
-    
-    // Create main video element
+    // Create the main video element
     let mainVideo = document.createElement('video');
     mainVideo.style.position = 'absolute';
     mainVideo.style.top = '50%';
@@ -470,8 +399,6 @@ async function setVideoBackground() {
     mainVideo.autoplay = true;
     mainVideo.muted = true;
     mainVideo.playsInline = true;
-    mainVideo.playbackRate = playbackRate; // Set initial playback rate
-    mainVideo.preload = 'auto'; // Ensure it preloads
     mainVideo.src = currentVideoObj.file;
     
     // Add to container
@@ -493,20 +420,18 @@ async function setVideoBackground() {
     nextVideo.style.zIndex = '2';
     nextVideo.muted = true;
     nextVideo.playsInline = true;
-    nextVideo.playbackRate = playbackRate; // Set initial playback rate
-    nextVideo.preload = 'auto'; // Ensure it preloads
     nextVideo.src = nextVideoObj.file;
     nextVideo.load(); // Preload the next video
+    
+    // Add to container
+    container.appendChild(nextVideo);
     
     console.log(`Setup main video: ${currentVideoObj.file}`);
     console.log(`Preloaded next video: ${nextVideoObj.file}`);
     
-    // Add event listeners to ensure the playback rate is maintained
+    // Handle main video loading and playback
     mainVideo.addEventListener('loadeddata', () => {
       console.log('Main video loaded and ready to play, duration:', mainVideo.duration);
-      // Force playback rate immediately after loading
-      mainVideo.playbackRate = playbackRate;
-      console.log(`Set main video playback rate to ${playbackRate}x`);
       
       // Fade out the fallback image and fade in the video
       const fallbackImage = document.getElementById('video-fallback-image');
@@ -527,44 +452,6 @@ async function setVideoBackground() {
       }, 100);
     });
     
-    // Ensure playback rate is set when play begins
-    mainVideo.addEventListener('play', () => {
-      if (mainVideo.playbackRate !== playbackRate) {
-        mainVideo.playbackRate = playbackRate;
-        console.log(`Reset main video playback rate to ${playbackRate}x on play`);
-      }
-    });
-    
-    // Monitor for any playback rate changes and correct them
-    mainVideo.addEventListener('ratechange', () => {
-      if (mainVideo.playbackRate !== playbackRate) {
-        console.log(`Correcting main video playback rate from ${mainVideo.playbackRate} to ${playbackRate}`);
-        // Use setTimeout to ensure this doesn't cause infinite loops
-        setTimeout(() => { mainVideo.playbackRate = playbackRate; }, 0);
-      }
-    });
-    
-    // Do the same for the next video
-    nextVideo.addEventListener('loadeddata', () => {
-      nextVideo.playbackRate = playbackRate;
-      console.log(`Set next video playback rate to ${playbackRate}x`);
-    });
-    
-    nextVideo.addEventListener('play', () => {
-      if (nextVideo.playbackRate !== playbackRate) {
-        nextVideo.playbackRate = playbackRate;
-        console.log(`Reset next video playback rate to ${playbackRate}x on play`);
-      }
-    });
-    
-    nextVideo.addEventListener('ratechange', () => {
-      if (nextVideo.playbackRate !== playbackRate) {
-        console.log(`Correcting next video playback rate from ${nextVideo.playbackRate} to ${playbackRate}`);
-        // Use setTimeout to ensure this doesn't cause infinite loops
-        setTimeout(() => { nextVideo.playbackRate = playbackRate; }, 0);
-      }
-    });
-    
     // Handle main video end
     mainVideo.addEventListener('ended', handleVideoEnd);
     
@@ -580,35 +467,29 @@ async function setVideoBackground() {
       if (mainVideo.duration > 0 && !transitionStarted) {
         const timeRemaining = mainVideo.duration - mainVideo.currentTime;
         
-        // Start crossfade earlier (1.5 seconds before end) to allow more time for transition
-        if (timeRemaining <= 1.5 && timeRemaining > 0) {
-          // First, make sure the next video is fully loaded and ready
-          if (nextVideo.readyState >= 3) { // HAVE_FUTURE_DATA or HAVE_ENOUGH_DATA
-            transitionStarted = true;
-            console.log(`Starting early crossfade with ${timeRemaining.toFixed(2)}s remaining`);
-            
-            // Start playing the next video
-            const playPromise = nextVideo.play();
-            
-            if (playPromise !== undefined) {
-              playPromise.then(() => {
-                console.log('Next video started playing during early crossfade');
-                
-                // Fade out the current video and fade in the next video
-                mainVideo.style.opacity = '0';
-                nextVideo.style.opacity = '1';
-                
-                // Don't remove the old video until the current one actually ends
-                // The 'ended' event will still fire and handleVideoEnd will do the cleanup
-              }).catch(error => {
-                console.error('Error playing next video during early crossfade:', error);
-                // If this fails, we'll fall back to the normal ended event handler
-                transitionStarted = false;
-              });
-            }
-          } else {
-            // Next video isn't ready yet, wait a bit longer
-            console.log(`Next video not fully loaded (readyState: ${nextVideo.readyState}), waiting...`);
+        // Start transition just 0.5 seconds before the end
+        if (timeRemaining <= 0.5 && timeRemaining > 0) {
+          transitionStarted = true;
+          console.log(`Starting early crossfade with ${timeRemaining.toFixed(2)}s remaining`);
+          
+          // Start playing the next video
+          const playPromise = nextVideo.play();
+          
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              console.log('Next video started playing during early crossfade');
+              
+              // Fade out the current video and fade in the next video
+              mainVideo.style.opacity = '0';
+              nextVideo.style.opacity = '1';
+              
+              // Don't remove the old video until the current one actually ends
+              // The 'ended' event will still fire and handleVideoEnd will do the cleanup
+            }).catch(error => {
+              console.error('Error playing next video during early crossfade:', error);
+              // If this fails, we'll fall back to the normal ended event handler
+              transitionStarted = false;
+            });
           }
         }
       }
@@ -616,273 +497,185 @@ async function setVideoBackground() {
     
     // Function to handle transition to next video
     function handleVideoEnd() {
-      try {
-        // Increment the played video counter
-        playedVideoCount++;
+      // Increment the played video counter
+      playedVideoCount++;
+      
+      // If we already started transition, just do cleanup
+      if (transitionStarted) {
+        console.log('Video ended, completing transition that started early');
+      } else {
+        console.log('Video ended, starting transition');
         
-        // If we already started transition, just do cleanup
-        if (transitionStarted) {
-          console.log('Video ended, completing transition that started early');
-        } else {
-          console.log('Video ended, starting transition');
-          
-          // Start playing the next video
-          const playPromise = nextVideo.play();
-          
-          if (playPromise !== undefined) {
-            playPromise.then(() => {
-              console.log('Next video started playing');
-              
-              // Fade out the current video and fade in the next video
-              mainVideo.style.opacity = '0';
-              nextVideo.style.opacity = '1';
-            }).catch(error => {
-              console.error('Error playing next video:', error);
-              // Try with explicit muted attribute which helps with autoplay
-              nextVideo.muted = true;
-              nextVideo.play().catch(err => {
-                console.error('Failed to play even with muted attribute:', err);
-                
-                // If we have an end image for the current video, show it
-                if (currentVideoObj.endImage) {
-                  showFallbackAndRestart(currentVideoObj.endImage);
-                } else {
-                  // Restart with a new random video if no end image
-                  setVideoBackground();
-                }
-                return;
-              });
-            });
-          }
-        }
+        // Start playing the next video
+        const playPromise = nextVideo.play();
         
-        // After transition begins, prepare for the next cycle
-        // Use setTimeout to ensure the transition has time to complete visually
-        setTimeout(() => {
-          try {
-            // Determine the next video selection strategy
-            let newNextVideoObj;
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            console.log('Next video started playing');
             
-            // After playing all videos in the list at least once, we can introduce more randomness
-            // or continue with the transition-based approach
-            if (playedVideoCount >= backgroundVideos.length) {
-              // We've played through at least one complete cycle
-              console.log(`Completed ${playedVideoCount} videos (at least one full cycle)`);
+            // Fade out the current video and fade in the next video
+            mainVideo.style.opacity = '0';
+            nextVideo.style.opacity = '1';
+          }).catch(error => {
+            console.error('Error playing next video:', error);
+            // Try with explicit muted attribute which helps with autoplay
+            nextVideo.muted = true;
+            nextVideo.play().catch(err => {
+              console.error('Failed to play even with muted attribute:', err);
               
-              // 30% chance to pick a completely random video
-              if (Math.random() < 0.3) {
-                // Pick any random video that's not the current one
-                const availableVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
-                if (availableVideos.length > 0) {
-                  const randomIdx = Math.floor(Math.random() * availableVideos.length);
-                  newNextVideoObj = availableVideos[randomIdx];
-                  console.log(`Selecting random video for variety: ${newNextVideoObj.file}`);
-                } else {
-                  // Only one video available, reuse it
-                  newNextVideoObj = nextVideoObj;
-                  console.log(`Only one video available, reusing: ${newNextVideoObj.file}`);
-                }
-              } else {
-                // Try to find a video with a matching transition
-                const matchingVideos = backgroundVideos.filter(v => 
-                  v.startImage === nextVideoObj.endImage && v.file !== nextVideoObj.file
-                );
+              // If we have an end image for the current video, show it
+              if (currentVideoObj.endImage) {
+                // Create an image element with the end image
+                const endImageElement = document.createElement('div');
+                endImageElement.style.position = 'absolute';
+                endImageElement.style.top = '0';
+                endImageElement.style.left = '0';
+                endImageElement.style.width = '100%';
+                endImageElement.style.height = '100%';
+                endImageElement.style.backgroundImage = `url('${currentVideoObj.endImage}')`;
+                endImageElement.style.backgroundSize = 'cover';
+                endImageElement.style.backgroundPosition = 'center';
+                endImageElement.style.zIndex = '1';
                 
-                if (matchingVideos.length > 0) {
-                  // Choose one of the matching videos randomly
-                  const matchIdx = Math.floor(Math.random() * matchingVideos.length);
-                  newNextVideoObj = matchingVideos[matchIdx];
-                  console.log(`Found ${matchingVideos.length} videos with matching transitions, using: ${newNextVideoObj.file}`);
-                } else {
-                  // No matching transitions, choose another random video
-                  const otherVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
-                  if (otherVideos.length > 0) {
-                    const otherIdx = Math.floor(Math.random() * otherVideos.length);
-                    newNextVideoObj = otherVideos[otherIdx];
-                    console.log(`No matching transitions found, using random next video: ${newNextVideoObj.file}`);
-                  } else {
-                    // If there are no other videos, reuse the current one
-                    newNextVideoObj = nextVideoObj;
-                    console.log(`No other videos available, reusing current video: ${newNextVideoObj.file}`);
+                // Add to container
+                container.appendChild(endImageElement);
+                console.log(`Showing end image ${currentVideoObj.endImage} as fallback`);
+                
+                // Remove after a delay and restart the video sequence
+                setTimeout(() => {
+                  if (endImageElement.parentNode) {
+                    endImageElement.parentNode.removeChild(endImageElement);
                   }
-                }
-              }
-            } else {
-              // We're still in the first cycle, try to find matching transitions
-              const matchingVideos = backgroundVideos.filter(v => 
-                v.startImage === nextVideoObj.endImage && v.file !== nextVideoObj.file
-              );
-              
-              if (matchingVideos.length > 0) {
-                // Choose one of the matching videos randomly
-                const matchIdx = Math.floor(Math.random() * matchingVideos.length);
-                newNextVideoObj = matchingVideos[matchIdx];
-                console.log(`Found ${matchingVideos.length} videos with matching transitions, using: ${newNextVideoObj.file}`);
+                  setVideoBackground(); // Restart with a new random video
+                }, 3000);
               } else {
-                // No matching transitions, choose another random video
-                const otherVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
-                if (otherVideos.length > 0) {
-                  const otherIdx = Math.floor(Math.random() * otherVideos.length);
-                  newNextVideoObj = otherVideos[otherIdx];
-                  console.log(`No matching transitions found, using random next video: ${newNextVideoObj.file}`);
-                } else {
-                  // If there are no other videos, reuse the current one
-                  newNextVideoObj = nextVideoObj;
-                  console.log(`No other videos available, reusing current video: ${newNextVideoObj.file}`);
-                }
+                // Restart with a new random video if no end image
+                setVideoBackground();
+              }
+              return;
+            });
+          });
+        }
+      }
+      
+      // After transition begins, prepare for the next cycle
+      // Use setTimeout to ensure the transition has time to complete visually
+      setTimeout(() => {
+        // Determine the next video selection strategy
+        let newNextVideoObj;
+        
+        // After playing all videos in the list at least once, we can introduce more randomness
+        // or continue with the transition-based approach
+        if (playedVideoCount >= backgroundVideos.length) {
+          // We've played through at least one complete cycle
+          console.log(`Completed ${playedVideoCount} videos (at least one full cycle)`);
+          
+          // 30% chance to pick a completely random video
+          if (Math.random() < 0.3) {
+            // Pick any random video that's not the current one
+            const availableVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
+            if (availableVideos.length > 0) {
+              const randomIdx = Math.floor(Math.random() * availableVideos.length);
+              newNextVideoObj = availableVideos[randomIdx];
+              console.log(`Selecting random video for variety: ${newNextVideoObj.file}`);
+            } else {
+              // Only one video available, reuse it
+              newNextVideoObj = nextVideoObj;
+              console.log(`Only one video available, reusing: ${newNextVideoObj.file}`);
+            }
+          } else {
+            // Try to find a video with a matching transition
+            const matchingVideos = backgroundVideos.filter(v => 
+              v.startImage === nextVideoObj.endImage && v.file !== nextVideoObj.file
+            );
+            
+            if (matchingVideos.length > 0) {
+              // Choose one of the matching videos randomly
+              const matchIdx = Math.floor(Math.random() * matchingVideos.length);
+              newNextVideoObj = matchingVideos[matchIdx];
+              console.log(`Found ${matchingVideos.length} videos with matching transitions, using: ${newNextVideoObj.file}`);
+            } else {
+              // No matching transitions, choose another random video
+              const otherVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
+              if (otherVideos.length > 0) {
+                const otherIdx = Math.floor(Math.random() * otherVideos.length);
+                newNextVideoObj = otherVideos[otherIdx];
+                console.log(`No matching transitions found, using random next video: ${newNextVideoObj.file}`);
+              } else {
+                // If there are no other videos, reuse the current one
+                newNextVideoObj = nextVideoObj;
+                console.log(`No other videos available, reusing current video: ${newNextVideoObj.file}`);
               }
             }
-            
-            // Create a new video element that will be used in the next transition
-            const newNextVideo = document.createElement('video');
-            newNextVideo.style.position = 'absolute';
-            newNextVideo.style.top = '50%';
-            newNextVideo.style.left = '50%';
-            newNextVideo.style.transform = 'translate(-50%, -50%)';
-            newNextVideo.style.minWidth = '100%';
-            newNextVideo.style.minHeight = '100%';
-            newNextVideo.style.width = 'auto';
-            newNextVideo.style.height = 'auto';
-            newNextVideo.style.objectFit = 'cover';
-            newNextVideo.style.opacity = '0';
-            newNextVideo.style.transition = 'opacity 1s ease-in-out';
-            newNextVideo.style.zIndex = '2';
-            newNextVideo.muted = true;
-            newNextVideo.playsInline = true;
-            newNextVideo.playbackRate = playbackRate; // Set initial playback rate
-            newNextVideo.preload = 'auto'; // Ensure it preloads
-            newNextVideo.src = newNextVideoObj.file;
-            newNextVideo.load(); // Preload it
-            
-            // Add error handling for the new next video
-            newNextVideo.addEventListener('error', (e) => {
-              console.error(`Error loading next video ${newNextVideoObj.file}:`, e);
-              // Try another video instead
-              const fallbackVideo = backgroundVideos.find(v => v.file !== newNextVideoObj.file && v.file !== currentVideoObj.file);
-              if (fallbackVideo) {
-                console.log(`Attempting fallback to: ${fallbackVideo.file}`);
-                newNextVideo.src = fallbackVideo.file;
-                newNextVideoObj = fallbackVideo;
-                newNextVideo.load();
-              }
-            });
-            
-            // Add event listeners for playback rate
-            newNextVideo.addEventListener('loadeddata', () => {
-              newNextVideo.playbackRate = playbackRate;
-              console.log(`Set new next video playback rate to ${playbackRate}x`);
-            });
-            
-            newNextVideo.addEventListener('play', () => {
-              if (newNextVideo.playbackRate !== playbackRate) {
-                newNextVideo.playbackRate = playbackRate;
-              }
-            });
-            
-            newNextVideo.addEventListener('ratechange', () => {
-              if (newNextVideo.playbackRate !== playbackRate) {
-                setTimeout(() => { newNextVideo.playbackRate = playbackRate; }, 0);
-              }
-            });
-            
-            // Add to container
-            container.appendChild(newNextVideo);
-            
-            console.log(`Prepared next video: ${newNextVideoObj.file}`);
-            
-            // Remove the old video element (previous mainVideo)
-            safeRemoveEventListener(mainVideo, 'ended', handleVideoEnd);
-            safeRemoveEventListener(mainVideo, 'timeupdate', timeUpdateHandler);
-            
-            // Safe removal to prevent errors
-            if (mainVideo.parentNode) {
-              mainVideo.parentNode.removeChild(mainVideo);
+          }
+        } else {
+          // We're still in the first cycle, try to find matching transitions
+          const matchingVideos = backgroundVideos.filter(v => 
+            v.startImage === nextVideoObj.endImage && v.file !== nextVideoObj.file
+          );
+          
+          if (matchingVideos.length > 0) {
+            // Choose one of the matching videos randomly
+            const matchIdx = Math.floor(Math.random() * matchingVideos.length);
+            newNextVideoObj = matchingVideos[matchIdx];
+            console.log(`Found ${matchingVideos.length} videos with matching transitions, using: ${newNextVideoObj.file}`);
+          } else {
+            // No matching transitions, choose another random video
+            const otherVideos = backgroundVideos.filter(v => v.file !== nextVideoObj.file);
+            if (otherVideos.length > 0) {
+              const otherIdx = Math.floor(Math.random() * otherVideos.length);
+              newNextVideoObj = otherVideos[otherIdx];
+              console.log(`No matching transitions found, using random next video: ${newNextVideoObj.file}`);
+            } else {
+              // If there are no other videos, reuse the current one
+              newNextVideoObj = nextVideoObj;
+              console.log(`No other videos available, reusing current video: ${newNextVideoObj.file}`);
             }
-            
-            // Update references for next cycle
-            mainVideo = nextVideo;
-            nextVideo = newNextVideo;
-            currentVideoObj = nextVideoObj;
-            nextVideoObj = newNextVideoObj;
-            
-            // Reset transition flag
-            transitionStarted = false;
-            
-            // Set up event listeners for the new main video
-            safeAddEventListener(mainVideo, 'ended', handleVideoEnd);
-            safeAddEventListener(mainVideo, 'timeupdate', timeUpdateHandler);
-          } catch (cycleError) {
-            console.error('Error preparing next video cycle:', cycleError);
-            // Try to restart the background 
-            showFallbackAndRestart();
           }
-        }, 1000); // Wait for the crossfade to complete
-      } catch (handlerError) {
-        console.error('Critical error in handleVideoEnd:', handlerError);
-        // Last resort fallback
-        showFallbackAndRestart();
-      }
-    }
-    
-    // Helper function to safely remove event listeners
-    function safeRemoveEventListener(element, event, handler) {
-      try {
-        if (element) {
-          element.removeEventListener(event, handler);
-        }
-      } catch (e) {
-        console.warn(`Error removing ${event} event listener:`, e);
-      }
-    }
-    
-    // Helper function to safely add event listeners
-    function safeAddEventListener(element, event, handler) {
-      try {
-        if (element) {
-          element.addEventListener(event, handler);
-        }
-      } catch (e) {
-        console.warn(`Error adding ${event} event listener:`, e);
-      }
-    }
-    
-    // Helper function to show fallback and restart
-    function showFallbackAndRestart(fallbackImageSrc) {
-      try {
-        // Create an image element with the fallback image
-        const fallbackImage = document.createElement('div');
-        fallbackImage.style.position = 'absolute';
-        fallbackImage.style.top = '0';
-        fallbackImage.style.left = '0';
-        fallbackImage.style.width = '100%';
-        fallbackImage.style.height = '100%';
-        fallbackImage.style.backgroundColor = '#000'; // Black background instead of white
-        fallbackImage.style.backgroundImage = fallbackImageSrc ? 
-          `url('${fallbackImageSrc}')` : 
-          `url('${backgroundVideos[0].startImage || 'images/01.png'}')`;
-        fallbackImage.style.backgroundSize = 'cover';
-        fallbackImage.style.backgroundPosition = 'center';
-        fallbackImage.style.zIndex = '10'; // On top
-        
-        // Add to container if it exists
-        const container = document.querySelector('#background-video-container');
-        if (container) {
-          container.appendChild(fallbackImage);
-          console.log('Showing fallback image before restart');
         }
         
-        // Restart after a delay
-        setTimeout(() => {
-          if (container) {
-            container.innerHTML = ''; // Clear everything
-          }
-          setVideoBackground(); // Full restart
-        }, 2000);
-      } catch (fallbackError) {
-        console.error('Error in fallback:', fallbackError);
-        // Last resort - just try to restart
-        setTimeout(() => setVideoBackground(), 2000);
-      }
+        // Create a new video element that will be used in the next transition
+        const newNextVideo = document.createElement('video');
+        newNextVideo.style.position = 'absolute';
+        newNextVideo.style.top = '50%';
+        newNextVideo.style.left = '50%';
+        newNextVideo.style.transform = 'translate(-50%, -50%)';
+        newNextVideo.style.minWidth = '100%';
+        newNextVideo.style.minHeight = '100%';
+        newNextVideo.style.width = 'auto';
+        newNextVideo.style.height = 'auto';
+        newNextVideo.style.objectFit = 'cover';
+        newNextVideo.style.opacity = '0';
+        newNextVideo.style.transition = 'opacity 1s ease-in-out';
+        newNextVideo.style.zIndex = '2';
+        newNextVideo.muted = true;
+        newNextVideo.playsInline = true;
+        newNextVideo.src = newNextVideoObj.file;
+        newNextVideo.load(); // Preload it
+        
+        // Add to container
+        container.appendChild(newNextVideo);
+        
+        console.log(`Prepared next video: ${newNextVideoObj.file}`);
+        
+        // Remove the old video element (previous mainVideo)
+        mainVideo.removeEventListener('ended', handleVideoEnd);
+        mainVideo.removeEventListener('timeupdate', timeUpdateHandler);
+        container.removeChild(mainVideo);
+        
+        // Update references for next cycle
+        mainVideo = nextVideo;
+        nextVideo = newNextVideo;
+        currentVideoObj = nextVideoObj;
+        nextVideoObj = newNextVideoObj;
+        
+        // Reset transition flag
+        transitionStarted = false;
+        
+        // Set up event listeners for the new main video
+        mainVideo.addEventListener('ended', handleVideoEnd);
+        mainVideo.addEventListener('timeupdate', timeUpdateHandler);
+      }, 1000); // Wait for the crossfade to complete
     }
     
     // If there's an error loading the video, try again with a different one
@@ -893,34 +686,6 @@ async function setVideoBackground() {
     });
     
     console.log('Video background initialized successfully');
-    
-    // Add event listeners to maintain playback rate
-    const setVideoSpeed = (video) => {
-      if (video && video.playbackRate !== playbackRate) {
-        video.playbackRate = playbackRate;
-      }
-    };
-    
-    // Ensure playback rate is maintained even if the browser resets it
-    mainVideo.addEventListener('play', () => setVideoSpeed(mainVideo));
-    mainVideo.addEventListener('loadeddata', () => setVideoSpeed(mainVideo));
-    mainVideo.addEventListener('ratechange', () => {
-      // Only force it if it's different and not a direct user action
-      if (mainVideo.playbackRate !== playbackRate) {
-        console.log(`Correcting main video playback rate to ${playbackRate}x`);
-        mainVideo.playbackRate = playbackRate;
-      }
-    });
-    
-    // Same for next video
-    nextVideo.addEventListener('play', () => setVideoSpeed(nextVideo));
-    nextVideo.addEventListener('loadeddata', () => setVideoSpeed(nextVideo));
-    nextVideo.addEventListener('ratechange', () => {
-      if (nextVideo.playbackRate !== playbackRate) {
-        console.log(`Correcting next video playback rate to ${playbackRate}x`);
-        nextVideo.playbackRate = playbackRate;
-      }
-    });
     
   } catch (error) {
     console.error('Error in video background setup:', error);
@@ -1073,48 +838,33 @@ document.addEventListener("DOMContentLoaded", () => {
   // Add background toggle control
   const controlsContainer = document.createElement('div');
   controlsContainer.id = 'background-controls';
-  controlsContainer.className = 'absolute bottom-4 right-4 flex flex-col gap-2';
+  controlsContainer.className = 'absolute bottom-4 right-4';
   controlsContainer.style.zIndex = '100';
   
-  // Get current preferences
-  const currentBgPreference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'video';
-  const currentSpeedPreference = localStorage.getItem(VIDEO_SPEED_PREF_KEY) || 'normal';
+  // Get current preference or default to video
+  const currentPreference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'video';
   
-  // Create toggle switches HTML
+  // Create toggle switch
   controlsContainer.innerHTML = `
     <div class="bg-toggle p-2 rounded-lg bg-black bg-opacity-50 text-white text-xs flex items-center">
       <span class="mr-2">Background:</span>
       <label class="switch">
-        <input type="checkbox" id="background-toggle" ${currentBgPreference === 'image' ? 'checked' : ''}>
+        <input type="checkbox" id="background-toggle" ${currentPreference === 'image' ? 'checked' : ''}>
         <span class="slider round"></span>
       </label>
-      <span class="ml-2">${currentBgPreference === 'image' ? 'Images' : 'Video'}</span>
-    </div>
-    <div class="speed-toggle p-2 rounded-lg bg-black bg-opacity-50 text-white text-xs flex items-center ${currentBgPreference === 'image' ? 'hidden' : ''}">
-      <span class="mr-2">Video Speed:</span>
-      <label class="switch">
-        <input type="checkbox" id="speed-toggle" ${currentSpeedPreference === 'slow' ? 'checked' : ''}>
-        <span class="slider round"></span>
-      </label>
-      <span class="ml-2">${currentSpeedPreference === 'slow' ? '0.5x' : '1x'}</span>
+      <span class="ml-2">${currentPreference === 'image' ? 'Images' : 'Video'}</span>
     </div>
   `;
   
   document.body.appendChild(controlsContainer);
   
-  // Add background type toggle event listener
+  // Add event listener for toggle switch
   document.getElementById('background-toggle').addEventListener('change', async (e) => {
     const newPreference = e.target.checked ? 'image' : 'video';
     localStorage.setItem(BACKGROUND_PREF_KEY, newPreference);
     
     // Update label text
     e.target.parentNode.nextElementSibling.textContent = newPreference === 'image' ? 'Images' : 'Video';
-    
-    // Show/hide the speed toggle based on video/image selection
-    const speedToggle = document.querySelector('.speed-toggle');
-    if (speedToggle) {
-      speedToggle.classList.toggle('hidden', newPreference === 'image');
-    }
     
     // Clear any existing interval
     if (window.currentBackgroundInterval) {
@@ -1126,33 +876,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setRandomBackground().catch(err => {
       console.error("Error changing background:", err);
     });
-  });
-  
-  // Add video speed toggle event listener
-  document.getElementById('speed-toggle').addEventListener('change', async (e) => {
-    const newSpeedPreference = e.target.checked ? 'slow' : 'normal';
-    localStorage.setItem(VIDEO_SPEED_PREF_KEY, newSpeedPreference);
-    
-    // Update label text
-    e.target.parentNode.nextElementSibling.textContent = newSpeedPreference === 'slow' ? '0.5x' : '1x';
-    
-    console.log(`Changing video speed to: ${newSpeedPreference}`);
-    
-    // Only reload if we're currently in video mode
-    if (localStorage.getItem(BACKGROUND_PREF_KEY) === 'video') {
-      // Clear the container and restart video with new speed
-      const container = document.querySelector('#background-video-container');
-      if (container) {
-        // Clear existing videos
-        console.log('Clearing video container for speed change');
-        container.innerHTML = '';
-      }
-      
-      // Restart with new speed setting
-      setVideoBackground().catch(err => {
-        console.error("Error changing video speed:", err);
-      });
-    }
   });
 });
 
@@ -1229,41 +952,60 @@ const spotifyConfig = {
 };
 
 console.log("Spotify redirect URI:", spotifyConfig.redirectUri);
-console.log("Spotify application ready for authentication");
 
-// Handle API responses - improved to handle 304 responses
-function handleAPIResponse(response, operationName = 'API operation') {
-  console.log(`${operationName} response:`, {
-    status: response.status,
-    statusText: response.statusText,
-    url: response.url
-  });
+const params = new URLSearchParams(window.location.search);
+// Load OpenAI API key from ENV file
+const OPENAI_API_KEY = ENV.OPENAI_API_KEY;
+let popup = null;
+
+// Use Firebase config from ENV file
+const firebaseConfig = {
+  apiKey: ENV.FIREBASE_API_KEY,
+  authDomain: ENV.FIREBASE_AUTH_DOMAIN,
+  databaseURL: ENV.FIREBASE_DATABASE_URL,
+  projectId: ENV.FIREBASE_PROJECT_ID,
+  storageBucket: ENV.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: ENV.FIREBASE_MESSAGING_SENDER_ID,
+  appId: ENV.FIREBASE_APP_ID,
+  measurementId: ENV.FIREBASE_MEASUREMENT_ID
+};
+
+// Initialize Firebase with better error handling
+let app, auth, functions, db;
+try {
+  console.log("Initializing Firebase with config:", 
+    { 
+      projectId: firebaseConfig.projectId,
+      appId: firebaseConfig.appId 
+    }
+  );
+
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  functions = getFunctions(app);
   
-  if (response.status === 304) {
-    console.log(`${operationName} returned 304 Not Modified - using cached data`);
-    // 304 is not an error, it means the resource hasn't changed
-    return response;
+  // Try to initialize Firestore with error handling
+  try {
+    db = getFirestore(app);
+    console.log("Firestore initialized successfully");
+  } catch (firestoreError) {
+    console.error("Error initializing Firestore:", firestoreError);
+    console.log("The app will continue with limited functionality");
   }
+} catch (error) {
+  console.error("Firebase initialization error:", error);
+  console.log("Continuing with limited app functionality");
   
-  if (!response.ok) {
-    const errorMsg = `${operationName} failed with status ${response.status}`;
-    console.error(errorMsg);
-    throw new Error(errorMsg);
-  }
-  
-  return response;
+  // Create fallback Firebase instances if initialization failed
+  if (!app) app = { name: 'fallback-app' };
+  if (!auth) auth = { currentUser: null, onAuthStateChanged: (cb) => cb(null) };
+  if (!db) db = { doc: () => ({ get: () => Promise.resolve(null) }) };
+  if (!functions) functions = {};
 }
 
-// Initiates Spotify sign-in flow with additional checks
+// Initiates Spotify sign-in flow
 function login() {
   function getLoginURL(scopes) {
-    // Verify client ID is configured properly
-    if (!spotifyConfig.clientId || spotifyConfig.clientId === "YOUR_CLIENT_ID") {
-      console.error("Spotify client ID is not properly configured");
-      alert("Spotify authentication is not properly configured. Please contact the administrator.");
-      return null;
-    }
-    
     return `https://accounts.spotify.com/authorize?client_id=${spotifyConfig.clientId}&redirect_uri=${encodeURIComponent(spotifyConfig.redirectUri)}&scope=${encodeURIComponent(scopes.join(' '))}&response_type=code`;
   }
 
@@ -1275,165 +1017,564 @@ function login() {
     'playlist-modify-private'
   ]);
   
-  if (!url) return; // Exit if URL generation failed
-  
   // Right before opening the popup
   console.log("Opening Spotify login with URL:", url);
   // Log the URL to ensure it contains the code
-  const popup = window.open(url, 'Spotify', 'height=800,width=600');
+  popup = window.open(url, 'Spotify', 'height=800,width=600');
   if (popup) {
     console.log('Popup successfully opened');
   } else {
-    console.error('Failed to open popup - check if popup blocker is enabled');
-    alert("Your browser blocked the popup. Please allow popups for this site and try again.");
+    console.log('Failed to open popup');
   }
 }
 
-// Add event listener to handle messages from the popup
-window.addEventListener('message', async (event) => {
-  console.log('Received message from popup:', event.origin, event.data);
-  
-  // Validate origin to prevent security issues
-  if (event.origin !== 'https://perfectplaylist.ai' && 
-      event.origin !== 'https://playlist-gpt.web.app' && 
-      event.origin !== 'https://playlist-gpt.firebaseapp.com' &&
-      !event.origin.includes('gptplaylist.webflow.io') &&
-      !event.origin.includes('localhost')) {
-    console.error('Message received from unauthorized origin:', event.origin);
+// Export the login function to the global window object
+window.login = login;
+
+function getUserData(accessToken) {
+  console.log('Access Token before fetching user data:', accessToken);
+  return fetch(
+    'https://api.spotify.com/v1/me',
+    { 'headers': { 'Authorization': `Bearer ${accessToken}` } }
+  )
+    .then(response => {
+      console.log("Response from Spotify user data:", response);
+      if (!response.ok) {
+        throw new Error(`Spotify API responded with ${response.status}`);
+      }
+      return response;
+    });
+}
+
+let refreshToken;
+
+// Listen to messages from the popup
+window.addEventListener('message', event => {
+  if (event.source !== popup) {
     return;
   }
-  
-  let data;
+  console.log("Received a message from the popup");
+
+  let hash;
   try {
-    // Parse data if it's a string
-    data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-    console.log('Parsed message data:', data);
+    hash = JSON.parse(event.data);
   } catch (error) {
-    console.error('Error parsing message data:', error);
+    console.error("Failed to parse message data:", error);
     return;
   }
-  
-  // Process Spotify auth code
-  if (data.type === 'code' && data.code) {
-    console.log('Received Spotify auth code from popup');
-    document.getElementById('spotify-connect-btn').disabled = true;
-    document.getElementById('spotify-connect-btn').textContent = 'Connecting...';
-    
-    try {
-      // Exchange code for token using your Firebase function
-      const response = await fetch('https://us-central1-playlist-gpt.cloudfunctions.net/exchangeCodeForTokens', {
+  console.log("Parsed message data:", hash);
+
+  if (hash.type !== 'code') {
+    console.error("Unexpected message type:", hash.type);
+    return;
+  }
+
+  const code = hash.code;
+  // Right after you receive the code
+  console.log("Sending code to backend:", code);
+  fetch('https://us-central1-playlist-gpt.cloudfunctions.net/exchangeCodeForTokens', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ code: code, redirectUri: spotifyConfig.redirectUri }),
+  })
+    .then(response => response.json())
+    .then(data => {
+      console.log("Received tokens from exchangeCodeForTokens:", data);
+
+      const accessToken = data.accessToken;
+      refreshToken = data.refreshToken;
+
+      console.log('Access Token:', accessToken);
+      console.log('Refresh Token:', refreshToken);
+
+      sessionStorage.setItem('spotifyAccessToken', accessToken);
+      sessionStorage.setItem('spotifyRefreshToken', refreshToken);
+
+      return getUserData(accessToken);
+    })
+    .then(response => {
+      console.log("Received user data response:", response);
+      return response.json();
+    })
+    .then(parsedData => {
+      console.log("Calling signUp with data:", parsedData);
+
+      const data = parsedData;
+      const accessToken = sessionStorage.getItem('spotifyAccessToken');
+
+      console.log('Using stored Access Token:', accessToken);
+
+      return fetch('https://us-central1-playlist-gpt.cloudfunctions.net/signUp', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          code: data.code,
-          redirectUri: spotifyConfig.redirectUri
-        })
+        body: JSON.stringify({ spotifyData: data, accessToken: accessToken, refreshToken: refreshToken }),
       });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Token exchange failed: ${response.status} - ${errorText}`);
+    })
+    .then(result => result.json())
+    .then(result => {
+      console.log("Received result from signUp function:", result);
+
+      const token = result.token;
+      return signInWithCustomToken(auth, token);
+    })
+    .then(userCredential => {
+      console.log("Signed in with custom token:", userCredential);
+    
+      if (userCredential.user) {
+        sessionStorage.setItem('firebaseUID', userCredential.user.uid);
+        const firebaseUID = sessionStorage.getItem('firebaseUID');
+        console.log('Stored Firebase UID:', firebaseUID);
+        const userDoc = doc(db, 'users', firebaseUID);
+        return refreshSpotifyToken(firebaseUID)
+          .then(newAccessToken => {
+            console.log("Refreshed Access Token:", newAccessToken);
+    
+            sessionStorage.setItem('spotifyAccessToken', newAccessToken);
+    
+            return getDoc(userDoc);
+          });
+      } else {
+        console.error("userCredential.user is null");
+        throw new Error("userCredential.user is null");
       }
-      
-      const tokenData = await response.json();
-      console.log('Successfully exchanged code for tokens');
-      
-      // Store tokens in session storage
-      sessionStorage.setItem('spotifyAccessToken', tokenData.access_token);
-      sessionStorage.setItem('spotifyRefreshToken', tokenData.refresh_token);
-      sessionStorage.setItem('spotifyExpiry', Date.now() + (tokenData.expires_in * 1000));
-      
-      // Update UI to show connected state
-      document.getElementById('spotify-connect-btn').textContent = 'Connected!';
-      document.getElementById('create-section').style.display = 'block';
-      document.getElementById('connect-spotify').style.display = 'none';
-      
-      // Get user profile info
-      try {
-        // Use spotifyAPI function to handle token refresh if needed
-        const userProfile = await spotifyAPI(tokenData.access_token, 'https://api.spotify.com/v1/me', 'GET', {});
-        console.log('User logged in:', userProfile.display_name || userProfile.id);
-        sessionStorage.setItem('spotifyUserId', userProfile.id);
-        
-        // Check if we need to show user profile
-        const profileElement = document.getElementById('profile-info');
-        if (profileElement) {
-          profileElement.style.display = 'flex';
-          
-          // Update display name
-          const userNameElement = document.getElementById('display-name');
-          if (userNameElement) {
-            userNameElement.textContent = userProfile.display_name || userProfile.id;
-          }
-          
-          // Update avatar if available
-          const avatarElement = document.getElementById('avatar');
-          if (avatarElement && userProfile.images && userProfile.images.length > 0) {
-            avatarElement.innerHTML = `<img src="${userProfile.images[0].url}" alt="Profile" class="w-9 h-9 rounded-full" />`;
-          } else if (avatarElement) {
-            // Set default avatar with initials
-            const initials = (userProfile.display_name || userProfile.id).substring(0, 2).toUpperCase();
-            avatarElement.innerHTML = `<div class="w-9 h-9 rounded-full bg-green-600 flex items-center justify-center text-white">${initials}</div>`;
-          }
-        }
-      } catch (profileError) {
-        console.error('Error fetching user profile:', profileError);
-        // Still consider auth successful even if profile fetch fails
+    })
+    .then(docSnap => {
+      if (docSnap && docSnap.data) {
+        console.log("User document fetched:", docSnap.data());
+      } else {
+        throw new Error("docSnap is undefined or has no data");
       }
-    } catch (error) {
-      console.error('Error during auth code exchange:', error);
-      document.getElementById('spotify-connect-btn').disabled = false;
-      document.getElementById('spotify-connect-btn').textContent = 'Connect Spotify';
-      alert('Failed to connect with Spotify. Please try again.');
-    }
+    })    
+    .catch(error => {
+      console.error("Error in signIn function:", error);
+    });
+
+}, false);
+
+
+
+async function refreshSpotifyToken(firebaseUID) {
+  // call your backend refreshToken function here
+  console.log("Sending refresh token request for UID:", firebaseUID);
+  const response = await fetch('https://us-central1-playlist-gpt.cloudfunctions.net/refreshToken', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ uid: firebaseUID }),
+  });
+  // After the fetch call
+  if (response.ok) {
+    const data = await response.json();
+    console.log("Received new access token:", data.accessToken);  // Log successful refresh
+    return data.accessToken;
+  } else {
+    console.error("Failed to refresh token, response status:", response.status);  // Log failed refresh
+    throw new Error('Failed to refresh token');
+  }
+}
+
+
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    // User is signed in, get the user document
+    const userDoc = doc(db, 'users', user.uid);
+    getDoc(userDoc)
+      .then(docSnap => {
+        // Populate the UI with the user's data
+        console.log("Authenticated:", user);
+        hideLoginUI();
+        populateUI(docSnap);
+      })
+      .catch(error => {
+        console.error("Error getting document:", error);
+      });
+  } else {
+    // User is signed out
+    showLoginUI();
   }
 });
 
-// Expose the login function to the window object for HTML onclick access
-window.login = login;
+function signOut() {
+  signOut(auth).then(() => {
+    showLoginUI();
+  }).catch((error) => {
+    console.error("Something bad happened");
+  });
+}
 
-// Update the fetchJson function to handle 304 responses
-async function fetchJson(url, options = {}) {
-  try {
-    const response = await fetch(url, options);
-    
-    // Log detailed response for debugging
-    console.log(`Response from ${url}:`, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries([...response.headers])
-    });
-    
-    // Handle 304 Not Modified
-    if (response.status === 304) {
-      console.log("Resource not modified (304), using cached data");
-      // Try to parse JSON anyway, but if it fails, return an empty object as we're using cached data
-      try {
-        return await response.json();
-      } catch (e) {
-        console.log("Cannot parse 304 response body, returning empty object");
-        return {};
-      }
-    }
-    
-    // Handle other error statuses
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`API error ${response.status}: ${errorText}`);
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-    }
-    
-    // Parse JSON for successful responses
-    return await response.json();
-  } catch (error) {
-    console.error(`Error fetching from ${url}:`, error);
-    throw error;
+function toggleDisplay(elementId, displayStyle) {
+  let element = document.getElementById(elementId);
+  if (element) {
+    element.style.display = displayStyle;
   }
 }
 
-// Modify the spotifyAPI function to handle 304 responses
+function hideLoginUI() {
+  toggleDisplay('create-section', "block");
+  toggleDisplay('connect-spotify', "none");
+  toggleDisplay('profile-info', "flex");
+}
+
+function showLoginUI() {
+  toggleDisplay('create-section', "none");
+  toggleDisplay('connect-spotify', "block");
+  toggleDisplay('profile-info', "none");
+}
+
+function showLoadingUI() {
+  toggleDisplay('loading', "block");
+  toggleDisplay('playlist-info', "none"); // Hide playlist info while loading
+  
+  // Reset any animation classes when loading
+  const inputSection = document.getElementById('create-section');
+  if (inputSection) {
+    inputSection.classList.remove('shifted');
+  }
+  
+  const outputSection = document.getElementById('playlist-info');
+  if (outputSection) {
+    outputSection.classList.remove('visible');
+  }
+}
+
+function hideLoadingUI() {
+  toggleDisplay('loading', "none");
+  toggleDisplay('playlist-info', "block"); // Show playlist info when loading is done
+  
+  // Apply animation classes with a slight delay
+  setTimeout(() => {
+    // Shift the input section
+    const inputSection = document.getElementById('create-section');
+    if (inputSection) {
+      inputSection.classList.add('shifted');
+    }
+    
+    // Fade in the output section
+    const outputSection = document.getElementById('playlist-info');
+    if (outputSection) {
+      outputSection.classList.add('visible');
+    }
+  }, 100); // Small delay to ensure DOM updates first
+}
+
+function populateUI(userDoc) {
+  const userData = userDoc.data();
+  console.log("Populating UI with user information:", userData);
+  document.getElementById("display-name").innerText = userData.display_name;
+
+  const avatarDiv = document.getElementById("avatar");
+  // Clear the avatar div
+  avatarDiv.innerHTML = '';
+  if (userData.images && userData.images.length > 0) {
+    const avatarImage = document.createElement('img');
+    avatarImage.src = userData.images[0].url;
+    avatarImage.className = 'avatar-image';
+    avatarDiv.appendChild(avatarImage);
+  }
+}
+
+
+// Chat GPT Reqeusts
+async function createPlaylistHandler(event) {
+  try {
+    console.log("Begin create playlist handler");
+    event.preventDefault();
+    showLoadingUI();
+
+    const user = auth.currentUser; // Get the current user directly from Firebase Auth
+    if (!user) {
+      console.error("No user is currently signed in");
+      hideLoadingUI();
+      alert("No user is currently signed in. Please log in and try again.");
+      return;
+    }
+
+    const firebaseUID = user.uid; // Get the UID from the user object
+
+    const userData = await getDoc(doc(db, 'users', firebaseUID));
+    if (!userData || !userData.data()) {
+      console.error("No user data found for firebaseUID:", firebaseUID);
+      hideLoadingUI();
+      alert("Unable to retrieve your user information. Please try again.");
+      return;
+    }
+    const { id: userID, accessToken: currentAccessToken } = userData.data();
+
+    const playlistDescription = document.getElementById("playlist-description-input").value;
+    if (!playlistDescription) {
+      console.error("No playlist description input found");
+      hideLoadingUI();
+      alert("Please enter a description for your playlist.");
+      return;
+    }
+
+    try {
+      const playlistData = await generatePlaylistWithAssistant(playlistDescription);
+      const songList = playlistData.songs;
+      const playlistTitle = playlistData.title;
+
+      console.log("Current Access Token for Spotify:", currentAccessToken);
+      console.log("User ID for Spotify:", userID);
+
+      const newPlaylist = await createPlaylist(currentAccessToken, userID, playlistTitle, playlistDescription, firebaseUID);
+      console.log("New playlist created:", newPlaylist);
+
+      if (newPlaylist.id) {
+        // Process songs in batches to avoid rate limiting
+        const batchSize = 20; // Process 20 songs at a time
+        const batchDelay = 3000; // 3 second delay between batches (increased from 2 seconds)
+        const allSongs = [...songList]; // Create a copy to work with
+        const allTrackUris = [];
+        
+        // Show progress information to user
+        const totalSongs = allSongs.length;
+        console.log(`Processing ${totalSongs} songs in batches of ${batchSize} to avoid Spotify rate limits`);
+        
+        // Function to process a batch of songs
+        const processBatch = async (startIdx) => {
+          // Ensure access token is refreshed before processing batch
+          // This helps prevent 401 errors for long-running operations
+          if (startIdx > 0 && startIdx % 80 === 0) {
+            console.log("Preemptively refreshing access token to avoid expiration...");
+            try {
+              const newToken = await refreshSpotifyToken(firebaseUID);
+              if (newToken) {
+                console.log("Access token refreshed successfully during batch processing.");
+                sessionStorage.setItem('spotifyAccessToken', newToken);
+                currentAccessToken = newToken;
+              }
+            } catch (refreshError) {
+              console.error("Failed to refresh token during batch processing:", refreshError);
+              // Continue with current token and hope for the best
+            }
+          }
+          
+          const endIdx = Math.min(startIdx + batchSize, allSongs.length);
+          const batchSongs = allSongs.slice(startIdx, endIdx);
+          
+          console.log(`Processing batch ${Math.ceil(startIdx/batchSize) + 1} of ${Math.ceil(allSongs.length/batchSize)}: songs ${startIdx+1}-${endIdx} of ${totalSongs}`);
+          
+          // Process songs in this batch
+          const batchTrackUris = (await Promise.all(
+            batchSongs.map(async song => {
+              try {
+                // Clean and validate search query
+                const artist = typeof song.artist === 'string' ? song.artist.trim() : '';
+                const songTitle = typeof song.song === 'string' ? song.song.trim() : '';
+                
+                if (!artist || !songTitle) {
+                  console.error(`Invalid song data - missing artist or song title:`, song);
+                  return null;
+                }
+                
+                // Limit search query length to avoid API errors
+                const searchQuery = `${artist} ${songTitle}`.substring(0, 100);
+                console.log(`Searching Spotify for: "${searchQuery}"`);
+                
+                const searchResult = await searchSpotify(currentAccessToken, searchQuery, firebaseUID);
+                if (searchResult?.uri) {
+                  console.log(`Success: ${artist} - ${songTitle}`);
+                  return searchResult.uri;
+                } else {
+                  console.log(`That song did not work: ${artist} - ${songTitle}`);
+                  return null;
+                }
+              } catch (error) {
+                console.error(`Error searching for song "${song.artist} - ${song.song}":`, error);
+                return null;
+              }
+            })
+          )).filter(Boolean);
+          
+          // Add these tracks to our accumulator array
+          allTrackUris.push(...batchTrackUris);
+          
+          // Update the playlist with this batch of songs
+          if (batchTrackUris.length > 0) {
+            try {
+              await addTracksToPlaylist(currentAccessToken, newPlaylist.id, batchTrackUris, firebaseUID);
+              console.log(`Added ${batchTrackUris.length} tracks from batch to playlist`);
+            } catch (error) {
+              console.error("Error adding tracks to playlist:", error);
+            }
+          }
+          
+          // If there are more songs to process, wait and then process the next batch
+          if (endIdx < allSongs.length) {
+            console.log(`Waiting ${batchDelay/1000} seconds before processing next batch to avoid rate limits...`);
+            await new Promise(resolve => setTimeout(resolve, batchDelay));
+            return processBatch(endIdx);
+          }
+          
+          return allTrackUris;
+        };
+        
+        // Start the batch processing from the first song
+        await processBatch(0);
+        
+        console.log(`Completed processing all ${totalSongs} songs. Successfully added ${allTrackUris.length} tracks to the playlist.`);
+        embedPlaylist(newPlaylist.id);
+        enableButtons(currentAccessToken, newPlaylist);
+        console.log("Playlist embedded");
+        hideLoadingUI();
+
+        // Take a screenshot after the playlist is created, with a delay
+        console.log("Scheduling screenshot in 3 seconds to capture the completed playlist");
+        if (APP_CONFIG.testing.enableScreenshots) {
+          setTimeout(() => {
+            takeAutomaticScreenshot();
+          }, 3000); // 3 second delay before taking screenshot
+        }
+      } else {
+        console.error("Failed to create a new playlist");
+        hideLoadingUI();
+        alert("Failed to create a new playlist. Please try again.");
+      }
+    } catch (error) {
+      console.error("Playlist generation error:", error);
+      hideLoadingUI();
+      alert(error.message || "An error occurred while generating your playlist. Please try again.");
+      return;
+    }
+  } catch (error) {
+    console.error('Error in createPlaylistHandler: ', error);
+    hideLoadingUI();
+    alert("An error occurred while creating your playlist. Please try again.");
+  }
+}
+
+async function generatePlaylistWithAssistant(description) {
+  console.log("Generating playlist with Firebase function for description:", description);
+  
+  try {
+    // Extract Firebase user info for logging
+    const user = auth.currentUser;
+    const firebaseUID = user ? user.uid : null;
+    const userEmail = user ? user.email : 'anonymous';
+    console.log(`Request from user: ${userEmail} (${firebaseUID || 'anonymous'})`);
+    
+    // Check if the description is too long and truncate if necessary
+    const maxDescriptionLength = 10000;
+    const truncatedDescription = description.length > maxDescriptionLength 
+      ? `${description.substring(0, maxDescriptionLength)}... (truncated)` 
+      : description;
+    
+    if (description.length > maxDescriptionLength) {
+      console.log(`Description truncated from ${description.length} to ${maxDescriptionLength} characters`);
+    }
+    
+    // Special case handling for direct song lists
+    const isSongList = description.includes("Make a playlist with these songs:") || 
+                       description.split('\n').length > 10;
+    
+    if (isSongList) {
+      // Process song list client-side
+      console.log("Detected a song list. Processing locally...");
+      
+      // Default title if none is specified
+      let playlistTitle = "Custom Song Collection";
+      const lines = description.split('\n');
+      
+      // Check for custom title patterns
+      const titlePatterns = [
+        /Make a playlist with these songs called ['"](.*?)['"][:]/i,
+        /Make a playlist with these songs called (.*?)[:]/i,
+        /called ['"](.*?)['"][:]/i,
+        /called ['"](.*?)['"]/i,
+        /called (.*?)[:]/i,
+        /Make a (.*?) playlist with these songs/i,
+        /Create a (.*?) playlist/i,
+        /Title: ['"](.*?)['"]/im,
+        /Title: (.*?)$/im,
+        /Playlist[: ]+(.*?)$/im
+      ];
+      
+      // Try to extract a custom title using the patterns
+      let foundCustomTitle = false;
+      for (const pattern of titlePatterns) {
+        const match = description.match(pattern);
+        if (match?.length > 1) {
+          // Clean up the title by removing any surrounding quotes
+          playlistTitle = match[1].trim().replace(/^['"]|['"]$/g, '');
+          console.log(`Found custom playlist title: "${playlistTitle}"`);
+          foundCustomTitle = true;
+          break;
+        }
+      }
+      
+      // Parse the song list directly
+      const songLines = description
+        .replace(/Make a playlist with these songs.*?:/i, "")
+        .replace(/Make a.*?playlist with these songs/i, "")
+        .replace(/Create a.*?playlist/i, "")
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0 && line.includes('-'));
+      
+      console.log(`Found ${songLines.length} song entries in the list`);
+
+      // Create a structured playlist with all songs from the list
+      const songs = songLines.map(line => {
+        const parts = line.split('-').map(part => part.trim());
+        return {
+          artist: parts[0] || "Unknown Artist",
+          song: parts[1] || parts[0] || "Unknown Song"
+        };
+      });
+      
+      console.log(`PLAYLIST RESULT - MANUAL PARSING: Title: "${playlistTitle}", Songs: ${songs.length}, Status: Success`);
+      
+      return {
+        title: playlistTitle,
+        songs: songs
+      };
+    }
+    
+    // For non-song-list descriptions, use the Firebase function
+    console.log("Calling Firebase function to generate playlist...");
+    
+    const response = await fetch('https://us-central1-playlist-gpt.cloudfunctions.net/generatePlaylist', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        description: truncatedDescription,
+        uid: firebaseUID
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Firebase function error:", errorData);
+      throw new Error(errorData.error || "Error generating playlist. Please try again.");
+    }
+    
+    const playlistData = await response.json();
+    
+    // Validate the response data
+    if (!playlistData.title || !Array.isArray(playlistData.songs) || playlistData.songs.length === 0) {
+      console.error("Invalid playlist data received:", playlistData);
+      throw new Error("Received invalid playlist data. Please try again.");
+    }
+    
+    console.log(`PLAYLIST RESULT - FROM FIREBASE: Title: "${playlistData.title}", Songs: ${playlistData.songs.length}, Status: Success`);
+    
+    return playlistData;
+    
+  } catch (error) {
+    console.error("Error generating playlist with Firebase function:", error);
+    throw new Error(error.message || "Failed to generate playlist. Please try again later.");
+  }
+}
+
+// Move directly to the spotifyAPI function, removing the checkRunStatus function
 async function spotifyAPI(token, url, method = "GET", body = {}, firebaseUID) {
   const options = {
     method,
@@ -1449,36 +1590,13 @@ async function spotifyAPI(token, url, method = "GET", body = {}, firebaseUID) {
   let result;
   try {
     result = await fetch(url, options);
-    
-    // Log response details
-    console.log(`Spotify API response from ${url}:`, {
-      status: result.status,
-      statusText: result.statusText
-    });
-    
-    // Handle 304 Not Modified
-    if (result.status === 304) {
-      console.log("Spotify resource not modified (304), using cached data");
-      // For GET requests, we can proceed with empty data
-      // For other methods, we'll treat 304 as success
-      if (method === "GET") {
-        try {
-          return await result.json();
-        } catch (e) {
-          console.log("Cannot parse 304 response body, returning empty object");
-          return {};
-        }
-      } else {
-        return { success: true, status: 304, message: "Not Modified" };
-      }
-    }
   } catch (error) {
     console.error(`Fetch failed: ${error}`);
     throw new Error(error);
   }
 
-  // Check for Unauthorized (401) response
-  if (result.status === 401) {
+   // Check for Unauthorized (401) response
+   if (result.status === 401) {
     console.log("Access token expired, attempting to refresh...");
     const newToken = await refreshSpotifyToken(firebaseUID); // Refresh the token
     if (newToken) {
@@ -1487,6 +1605,7 @@ async function spotifyAPI(token, url, method = "GET", body = {}, firebaseUID) {
       result = await fetch(url, options); // Retry the request with the new token
     }
   }
+
 
   if (!result.ok) {
     throw new Error(`Spotify API request failed with status ${result.status}`);
@@ -1501,6 +1620,7 @@ async function spotifyAPI(token, url, method = "GET", body = {}, firebaseUID) {
   }
   return json;
 }
+
 
 // And then call spotifyAPI like this
 async function createPlaylist(token, userID, playlistName, description, firebaseUID) {
