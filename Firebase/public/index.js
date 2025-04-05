@@ -1351,16 +1351,36 @@ window.addEventListener('message', async (event) => {
       document.getElementById('connect-spotify').style.display = 'none';
       
       // Get user profile info
-      const userResponse = await fetch('https://api.spotify.com/v1/me', {
-        headers: {
-          'Authorization': `Bearer ${tokenData.access_token}`
-        }
-      });
-      
-      if (userResponse.ok) {
-        const userProfile = await userResponse.json();
+      try {
+        // Use spotifyAPI function to handle token refresh if needed
+        const userProfile = await spotifyAPI(tokenData.access_token, 'https://api.spotify.com/v1/me', 'GET', {});
         console.log('User logged in:', userProfile.display_name || userProfile.id);
         sessionStorage.setItem('spotifyUserId', userProfile.id);
+        
+        // Check if we need to show user profile
+        const profileElement = document.getElementById('profile-info');
+        if (profileElement) {
+          profileElement.style.display = 'flex';
+          
+          // Update display name
+          const userNameElement = document.getElementById('display-name');
+          if (userNameElement) {
+            userNameElement.textContent = userProfile.display_name || userProfile.id;
+          }
+          
+          // Update avatar if available
+          const avatarElement = document.getElementById('avatar');
+          if (avatarElement && userProfile.images && userProfile.images.length > 0) {
+            avatarElement.innerHTML = `<img src="${userProfile.images[0].url}" alt="Profile" class="w-9 h-9 rounded-full" />`;
+          } else if (avatarElement) {
+            // Set default avatar with initials
+            const initials = (userProfile.display_name || userProfile.id).substring(0, 2).toUpperCase();
+            avatarElement.innerHTML = `<div class="w-9 h-9 rounded-full bg-green-600 flex items-center justify-center text-white">${initials}</div>`;
+          }
+        }
+      } catch (profileError) {
+        console.error('Error fetching user profile:', profileError);
+        // Still consider auth successful even if profile fetch fails
       }
     } catch (error) {
       console.error('Error during auth code exchange:', error);
