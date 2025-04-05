@@ -2497,6 +2497,7 @@ function unfollowPlaylist(playlistId) {
   setTimeout(() => {
     const BRANDING_IMAGE_KEY = 'perfectPlaylist_brandingImage';
     const LOGO_STYLE_KEY = 'perfectPlaylist_logoStyle';
+    const FONT_STYLE_KEY = 'perfectPlaylist_fontStyle';
     const settingsButton = document.getElementById('settings-button');
     const settingsPanel = document.getElementById('settings-panel');
     
@@ -2513,6 +2514,7 @@ function unfollowPlaylist(playlistId) {
     const backgroundTypeToggle = document.getElementById('background-type-toggle');
     const brandingOptions = document.querySelectorAll('input[name="branding-option"]');
     const logoOptions = document.querySelectorAll('input[name="logo-option"]');
+    const fontOptions = document.querySelectorAll('input[name="font-option"]');
     
     // Initialize background toggle with the current preference
     const currentBackgroundPreference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'image';
@@ -2533,6 +2535,17 @@ function unfollowPlaylist(playlistId) {
         option.checked = true;
       }
     });
+    
+    // Initialize font style radio with the current preference or default
+    const currentFontStyle = localStorage.getItem(FONT_STYLE_KEY) || 'default';
+    fontOptions.forEach(option => {
+      if (option.value === currentFontStyle) {
+        option.checked = true;
+      }
+    });
+    
+    // Apply the current font style on initialization
+    applyFontStyle(currentFontStyle);
     
     // Toggle settings panel visibility
     settingsButton.addEventListener('click', (e) => {
@@ -2627,6 +2640,65 @@ function unfollowPlaylist(playlistId) {
         }
       });
     });
+    
+    // Handle font style selection
+    fontOptions.forEach(option => {
+      option.addEventListener('change', (e) => {
+        console.log('Font option changed:', e.target.value);
+        if (e.target.checked) {
+          const selectedFont = e.target.value;
+          localStorage.setItem(FONT_STYLE_KEY, selectedFont);
+          
+          // Apply the selected font style
+          applyFontStyle(selectedFont);
+        }
+      });
+    });
+    
+    // Function to apply font style to the app
+    function applyFontStyle(fontStyle) {
+      console.log('Applying font style:', fontStyle);
+      
+      // Reset all font classes first
+      document.body.classList.remove('font-outfit', 'font-lexend', 'font-quicksand', 'font-poppins');
+      
+      // Apply the selected font style to body
+      if (fontStyle !== 'default') {
+        document.body.classList.add(`font-${fontStyle}`);
+      }
+      
+      // Apply specific styles to subtitle and text input
+      const subtitle = document.querySelector('p.text-xl');
+      const textarea = document.querySelector('.playlist-textarea');
+      
+      if (subtitle) {
+        subtitle.classList.remove('font-outfit', 'font-lexend', 'font-quicksand', 'font-poppins');
+        if (fontStyle !== 'default') {
+          subtitle.classList.add(`font-${fontStyle}`);
+        }
+      }
+      
+      if (textarea) {
+        // Set inline style for the textarea to override the CSS
+        textarea.style.fontFamily = getFontFamilyValue(fontStyle);
+      }
+    }
+    
+    // Helper function to get CSS font-family value
+    function getFontFamilyValue(fontStyle) {
+      switch (fontStyle) {
+        case 'outfit':
+          return 'Outfit, sans-serif';
+        case 'lexend':
+          return 'Lexend, sans-serif';
+        case 'quicksand':
+          return 'Quicksand, sans-serif';
+        case 'poppins':
+          return 'Poppins, sans-serif';
+        default:
+          return "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+      }
+    }
     
     // Set initial branding image
     const brandingImage = document.querySelector('img[alt="Perfect Playlist"]');
