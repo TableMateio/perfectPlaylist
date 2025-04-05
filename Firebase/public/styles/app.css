@@ -44,10 +44,10 @@ body {
 .font-abril { font-family: var(--font-abril); }
 .font-rozha { font-family: var(--font-rozha); }
 
-/* Subtitle text - using a Gen Z font by default */
+/* Subtitle text - using Abril font by default */
 p.text-xl {
   color: #144614;
-  font-family: var(--font-outfit);
+  font-family: var(--font-abril);
   font-weight: 500;
   letter-spacing: 0.02em;
 }
@@ -971,4 +971,11 @@ h1.text-5xl {
 
 .image-option input:checked + span {
   color: #1DB954;
-} 
+}
+
+/* Input element text (textarea, button) styling */
+.input-font-outfit { font-family: var(--font-outfit) !important; }
+.input-font-lexend { font-family: var(--font-lexend) !important; }
+.input-font-quicksand { font-family: var(--font-quicksand) !important; }
+.input-font-poppins { font-family: var(--font-poppins) !important; }
+.input-font-default { font-family: var(--font-default) !important; } 

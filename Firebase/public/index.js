@@ -2498,6 +2498,7 @@ function unfollowPlaylist(playlistId) {
     const BRANDING_IMAGE_KEY = 'perfectPlaylist_brandingImage';
     const LOGO_STYLE_KEY = 'perfectPlaylist_logoStyle';
     const FONT_STYLE_KEY = 'perfectPlaylist_fontStyle';
+    const INPUT_FONT_KEY = 'perfectPlaylist_inputFont';
     const settingsButton = document.getElementById('settings-button');
     const settingsPanel = document.getElementById('settings-panel');
     
@@ -2515,6 +2516,7 @@ function unfollowPlaylist(playlistId) {
     const brandingOptions = document.querySelectorAll('input[name="branding-option"]');
     const logoOptions = document.querySelectorAll('input[name="logo-option"]');
     const fontOptions = document.querySelectorAll('input[name="font-option"]');
+    const inputFontOptions = document.querySelectorAll('input[name="input-font-option"]');
     
     // Initialize background toggle with the current preference
     const currentBackgroundPreference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'image';
@@ -2544,8 +2546,19 @@ function unfollowPlaylist(playlistId) {
       }
     });
     
+    // Initialize input font radio with the current preference or default
+    const currentInputFont = localStorage.getItem(INPUT_FONT_KEY) || 'default';
+    inputFontOptions.forEach(option => {
+      if (option.value === currentInputFont) {
+        option.checked = true;
+      }
+    });
+    
     // Apply the current font style on initialization
     applyFontStyle(currentFontStyle);
+    
+    // Apply the current input font style on initialization
+    applyInputFontStyle(currentInputFont);
     
     // Toggle settings panel visibility
     settingsButton.addEventListener('click', (e) => {
@@ -2655,6 +2668,20 @@ function unfollowPlaylist(playlistId) {
       });
     });
     
+    // Handle input font style selection
+    inputFontOptions.forEach(option => {
+      option.addEventListener('change', (e) => {
+        console.log('Input font option changed:', e.target.value);
+        if (e.target.checked) {
+          const selectedFont = e.target.value;
+          localStorage.setItem(INPUT_FONT_KEY, selectedFont);
+          
+          // Apply the selected input font style
+          applyInputFontStyle(selectedFont);
+        }
+      });
+    });
+    
     // Function to apply font style to the app
     function applyFontStyle(fontStyle) {
       console.log('Applying font style:', fontStyle);
@@ -2669,21 +2696,42 @@ function unfollowPlaylist(playlistId) {
       
       // Apply specific styles to subtitle and text input
       const subtitle = document.querySelector('p.text-xl');
-      const textarea = document.querySelector('.playlist-textarea');
       
-      if (subtitle) {
+      if (subtitle && fontStyle !== 'abril') { // Don't change if we're already using Abril as default
         console.log('Updating subtitle font to:', fontStyle);
         // Clear inline styles first
         subtitle.style.fontFamily = '';
         // Remove any existing font classes
-        subtitle.classList.remove('font-outfit', 'font-lexend', 'font-quicksand', 'font-poppins');
+        subtitle.classList.remove('font-outfit', 'font-lexend', 'font-quicksand', 'font-poppins', 
+          'font-playfair', 'font-dm-serif', 'font-cormorant', 'font-abril', 'font-rozha');
         // Set the font directly to ensure it overrides any CSS
         subtitle.style.fontFamily = getFontFamilyValue(fontStyle);
       }
+    }
+    
+    // Function to apply input font style to textarea and buttons
+    function applyInputFontStyle(inputFont) {
+      console.log('Applying input font style:', inputFont);
       
+      // Remove all input font classes from relevant elements
+      document.querySelectorAll('.playlist-textarea, .btn').forEach(el => {
+        el.classList.remove(
+          'input-font-default', 
+          'input-font-outfit', 
+          'input-font-lexend', 
+          'input-font-quicksand', 
+          'input-font-poppins'
+        );
+        
+        // Add the selected font class
+        el.classList.add(`input-font-${inputFont}`);
+      });
+      
+      // Also update the placeholder text
+      const textarea = document.querySelector('.playlist-textarea');
       if (textarea) {
         // Set inline style for the textarea to override the CSS
-        textarea.style.fontFamily = getFontFamilyValue(fontStyle);
+        textarea.style.fontFamily = getInputFontFamilyValue(inputFont);
       }
     }
     
@@ -2708,6 +2756,22 @@ function unfollowPlaylist(playlistId) {
           return 'Abril Fatface, cursive';
         case 'rozha':
           return 'Rozha One, serif';
+        default:
+          return "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+      }
+    }
+    
+    // Helper function to get input font-family value (only sans-serif fonts)
+    function getInputFontFamilyValue(fontStyle) {
+      switch (fontStyle) {
+        case 'outfit':
+          return 'Outfit, sans-serif';
+        case 'lexend':
+          return 'Lexend, sans-serif';
+        case 'quicksand':
+          return 'Quicksand, sans-serif';
+        case 'poppins':
+          return 'Poppins, sans-serif';
         default:
           return "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
       }
