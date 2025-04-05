@@ -840,6 +840,9 @@ document.addEventListener("DOMContentLoaded", () => {
   controlsContainer.id = 'background-controls';
   controlsContainer.className = 'absolute bottom-4 right-4';
   controlsContainer.style.zIndex = '100';
+  // TEMPORARILY HIDDEN: Background toggle is kept in the code but hidden from view
+  // To re-enable, remove the next line
+  controlsContainer.style.display = 'none';
   
   // Get current preference or default to video
   const currentPreference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'video';
