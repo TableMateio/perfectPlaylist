@@ -111,7 +111,7 @@ p.text-xl {
   align-items: center;
   justify-content: center;
   min-height: 85vh;
-  width: 100%;
+  width: 520px;
   max-width: 1200px;
   position: relative;
   padding: 1rem 0;
@@ -978,4 +978,18 @@ h1.text-5xl {
 .input-font-lexend { font-family: var(--font-lexend) !important; }
 .input-font-quicksand { font-family: var(--font-quicksand) !important; }
 .input-font-poppins { font-family: var(--font-poppins) !important; }
-.input-font-default { font-family: var(--font-default) !important; } 
+.input-font-default { font-family: var(--font-default) !important; }
+
+/* Logo and logotype sizing */
+img[alt="Perfect Playlist"] {
+  max-width: 280px; /* Reduced from 320px */
+}
+
+/* Profile area text colors */
+.user-info {
+  color: #333; /* Changed from white to black */
+}
+
+.user-info span {
+  color: #555; /* Changed from gray to darker gray */
+} 

@@ -1454,124 +1454,154 @@ async function generatePlaylistWithAssistant(description) {
   console.log("Generating playlist with Firebase function for description:", description);
   
   try {
-    // Extract Firebase user info for logging
+    // Get the current user
     const user = auth.currentUser;
-    const firebaseUID = user ? user.uid : null;
-    const userEmail = user ? user.email : 'anonymous';
-    console.log(`Request from user: ${userEmail} (${firebaseUID || 'anonymous'})`);
-    
-    // Check if the description is too long and truncate if necessary
-    const maxDescriptionLength = 10000;
-    const truncatedDescription = description.length > maxDescriptionLength 
-      ? `${description.substring(0, maxDescriptionLength)}... (truncated)` 
-      : description;
-    
-    if (description.length > maxDescriptionLength) {
-      console.log(`Description truncated from ${description.length} to ${maxDescriptionLength} characters`);
+    if (!user) {
+      console.error("No user is currently signed in");
+      throw new Error("Please log in and try again.");
     }
     
-    // Special case handling for direct song lists
-    const isSongList = description.includes("Make a playlist with these songs:") || 
-                       description.split('\n').length > 10;
+    // Log debugging info
+    console.log("Request from user:", user.email || user.uid);
     
-    if (isSongList) {
-      // Process song list client-side
-      console.log("Detected a song list. Processing locally...");
-      
-      // Default title if none is specified
-      let playlistTitle = "Custom Song Collection";
-      const lines = description.split('\n');
-      
-      // Check for custom title patterns
-      const titlePatterns = [
-        /Make a playlist with these songs called ['"](.*?)['"][:]/i,
-        /Make a playlist with these songs called (.*?)[:]/i,
-        /called ['"](.*?)['"][:]/i,
-        /called ['"](.*?)['"]/i,
-        /called (.*?)[:]/i,
-        /Make a (.*?) playlist with these songs/i,
-        /Create a (.*?) playlist/i,
-        /Title: ['"](.*?)['"]/im,
-        /Title: (.*?)$/im,
-        /Playlist[: ]+(.*?)$/im
-      ];
-      
-      // Try to extract a custom title using the patterns
-      let foundCustomTitle = false;
-      for (const pattern of titlePatterns) {
-        const match = description.match(pattern);
-        if (match?.length > 1) {
-          // Clean up the title by removing any surrounding quotes
-          playlistTitle = match[1].trim().replace(/^['"]|['"]$/g, '');
-          console.log(`Found custom playlist title: "${playlistTitle}"`);
-          foundCustomTitle = true;
-          break;
-        }
-      }
-      
-      // Parse the song list directly
-      const songLines = description
-        .replace(/Make a playlist with these songs.*?:/i, "")
-        .replace(/Make a.*?playlist with these songs/i, "")
-        .replace(/Create a.*?playlist/i, "")
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0 && line.includes('-'));
-      
-      console.log(`Found ${songLines.length} song entries in the list`);
-
-      // Create a structured playlist with all songs from the list
-      const songs = songLines.map(line => {
-        const parts = line.split('-').map(part => part.trim());
-        return {
-          artist: parts[0] || "Unknown Artist",
-          song: parts[1] || parts[0] || "Unknown Song"
-        };
-      });
-      
-      console.log(`PLAYLIST RESULT - MANUAL PARSING: Title: "${playlistTitle}", Songs: ${songs.length}, Status: Success`);
-      
-      return {
-        title: playlistTitle,
-        songs: songs
-      };
-    }
-    
-    // For non-song-list descriptions, use the Firebase function
+    // Call Firebase function to generate the playlist
     console.log("Calling Firebase function to generate playlist...");
     
-    const response = await fetch('https://us-central1-playlist-gpt.cloudfunctions.net/generatePlaylist', {
+    // Use the existing functions object to call the generatePlaylist function
+    const result = await functions.httpsCallable('generatePlaylist')({
+      description: description
+    });
+    
+    // Log the result
+    console.log("PLAYLIST RESULT - FROM FIREBASE:", 
+      `Title: "${result.data.title}", Songs: ${result.data.songs.length}, Status: ${result.data.status}`);
+    
+    if (result.data.status !== 'Success' || !result.data.songs || result.data.songs.length === 0) {
+      console.error("Failed to generate a playlist with songs");
+      throw new Error("We couldn't generate a playlist with those requirements. Please try a different description.");
+    }
+    
+    // Get access token from session storage
+    const accessToken = sessionStorage.getItem('spotifyAccessToken');
+    if (!accessToken) {
+      console.error("No Spotify access token found");
+      throw new Error("Spotify connection not found. Please reconnect to Spotify.");
+    }
+    
+    // Get the current user's Spotify ID
+    const userDataResponse = await fetch('https://api.spotify.com/v1/me', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    if (!userDataResponse.ok) {
+      console.error("Failed to fetch user data from Spotify:", userDataResponse.status);
+      throw new Error("Failed to fetch your Spotify account information. Please reconnect to Spotify.");
+    }
+    
+    const userData = await userDataResponse.json();
+    const spotifyUserId = userData.id;
+    
+    // Create a new playlist on Spotify
+    console.log("Creating playlist on Spotify:", result.data.title);
+    const playlistResponse = await fetch(`https://api.spotify.com/v1/users/${spotifyUserId}/playlists`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ 
-        description: truncatedDescription,
-        uid: firebaseUID
+      body: JSON.stringify({
+        name: result.data.title,
+        description: description,
+        public: true
       })
     });
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Firebase function error:", errorData);
-      throw new Error(errorData.error || "Error generating playlist. Please try again.");
+    if (!playlistResponse.ok) {
+      console.error("Failed to create playlist on Spotify:", playlistResponse.status);
+      throw new Error("Failed to create a playlist on Spotify. Please try again.");
     }
     
-    const playlistData = await response.json();
+    const playlistData = await playlistResponse.json();
+    const playlistId = playlistData.id;
     
-    // Validate the response data
-    if (!playlistData.title || !Array.isArray(playlistData.songs) || playlistData.songs.length === 0) {
-      console.error("Invalid playlist data received:", playlistData);
-      throw new Error("Received invalid playlist data. Please try again.");
+    // Find and add the songs to the playlist
+    console.log("Finding songs on Spotify...");
+    const trackUris = [];
+    let addedCount = 0;
+    
+    for (const song of result.data.songs) {
+      try {
+        // Format the search query
+        const searchQuery = `${song.artist} ${song.song}`.trim();
+        console.log(`Searching for: ${searchQuery}`);
+        
+        // Search for the track
+        const searchResponse = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=1`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        
+        if (!searchResponse.ok) {
+          console.warn(`Failed to search for song "${searchQuery}":`, searchResponse.status);
+          continue;
+        }
+        
+        const searchData = await searchResponse.json();
+        if (searchData.tracks && searchData.tracks.items && searchData.tracks.items.length > 0) {
+          const trackUri = searchData.tracks.items[0].uri;
+          trackUris.push(trackUri);
+          addedCount++;
+          console.log(`Found track: ${song.artist} - ${song.song} (${trackUri})`);
+        } else {
+          console.warn(`Song not found on Spotify: ${song.artist} - ${song.song}`);
+        }
+      } catch (error) {
+        console.error(`Error searching for song "${song.artist} - ${song.song}":`, error);
+      }
     }
     
-    console.log(`PLAYLIST RESULT - FROM FIREBASE: Title: "${playlistData.title}", Songs: ${playlistData.songs.length}, Status: Success`);
+    // Add the found tracks to the playlist
+    if (trackUris.length > 0) {
+      console.log(`Adding ${trackUris.length} tracks to playlist...`);
+      
+      // Add tracks in batches of 100 (Spotify API limit)
+      for (let i = 0; i < trackUris.length; i += 100) {
+        const batch = trackUris.slice(i, i + 100);
+        
+        const addTracksResponse = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            uris: batch
+          })
+        });
+        
+        if (!addTracksResponse.ok) {
+          console.error("Failed to add tracks to playlist:", addTracksResponse.status);
+        }
+      }
+      
+      console.log(`Successfully added ${trackUris.length} tracks to playlist`);
+    } else {
+      console.error("No tracks found on Spotify for this playlist");
+      throw new Error("We couldn't find any of the recommended songs on Spotify. Please try a different description.");
+    }
     
-    return playlistData;
+    // Return playlist ID and name
+    return {
+      playlistId,
+      playlistName: result.data.title
+    };
     
   } catch (error) {
-    console.error("Error generating playlist with Firebase function:", error);
-    throw new Error(error.message || "Failed to generate playlist. Please try again later.");
+    console.error("Error generating playlist:", error);
+    throw error;
   }
 }
 
