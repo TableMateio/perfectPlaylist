@@ -1,5 +1,6 @@
 /* Application-specific styles */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Lexend:wght@300;400;500;600&family=Quicksand:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Cormorant:wght@300;400;500;600&family=Abril+Fatface&family=Rozha+One&display=swap');
 
 html, body {
   height: 100%;
@@ -16,6 +17,11 @@ html, body {
   --font-lexend: 'Lexend', sans-serif;
   --font-quicksand: 'Quicksand', sans-serif;
   --font-poppins: 'Poppins', sans-serif;
+  --font-playfair: 'Playfair Display', serif;
+  --font-dm-serif: 'DM Serif Display', serif;
+  --font-cormorant: 'Cormorant', serif;
+  --font-abril: 'Abril Fatface', cursive;
+  --font-rozha: 'Rozha One', serif;
 }
 
 body {
@@ -32,6 +38,11 @@ body {
 .font-lexend { font-family: var(--font-lexend); }
 .font-quicksand { font-family: var(--font-quicksand); }
 .font-poppins { font-family: var(--font-poppins); }
+.font-playfair { font-family: var(--font-playfair); }
+.font-dm-serif { font-family: var(--font-dm-serif); }
+.font-cormorant { font-family: var(--font-cormorant); }
+.font-abril { font-family: var(--font-abril); }
+.font-rozha { font-family: var(--font-rozha); }
 
 /* Subtitle text - using a Gen Z font by default */
 p.text-xl {
@@ -119,7 +130,16 @@ p.text-xl {
   height: 100%;
   object-fit: contain;
   max-width: 100px;
-  animation: rotate 20s linear infinite;
+  animation: rotate-counter-clockwise 20s linear infinite;
+}
+
+@keyframes rotate-counter-clockwise {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
 }
 
 @keyframes rotate {
@@ -127,7 +147,7 @@ p.text-xl {
     transform: rotate(0deg);
   }
   to {
-    transform: rotate(-360deg);
+    transform: rotate(360deg);
   }
 }
 

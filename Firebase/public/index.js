@@ -2672,10 +2672,13 @@ function unfollowPlaylist(playlistId) {
       const textarea = document.querySelector('.playlist-textarea');
       
       if (subtitle) {
+        console.log('Updating subtitle font to:', fontStyle);
+        // Clear inline styles first
+        subtitle.style.fontFamily = '';
+        // Remove any existing font classes
         subtitle.classList.remove('font-outfit', 'font-lexend', 'font-quicksand', 'font-poppins');
-        if (fontStyle !== 'default') {
-          subtitle.classList.add(`font-${fontStyle}`);
-        }
+        // Set the font directly to ensure it overrides any CSS
+        subtitle.style.fontFamily = getFontFamilyValue(fontStyle);
       }
       
       if (textarea) {
@@ -2695,6 +2698,16 @@ function unfollowPlaylist(playlistId) {
           return 'Quicksand, sans-serif';
         case 'poppins':
           return 'Poppins, sans-serif';
+        case 'playfair':
+          return 'Playfair Display, serif';
+        case 'dm-serif':
+          return 'DM Serif Display, serif';
+        case 'cormorant':
+          return 'Cormorant, serif';
+        case 'abril':
+          return 'Abril Fatface, cursive';
+        case 'rozha':
+          return 'Rozha One, serif';
         default:
           return "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
       }
