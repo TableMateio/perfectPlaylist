@@ -1009,44 +1009,113 @@ try {
 // Initiates Spotify sign-in flow
 function login() {
   function getLoginURL(scopes) {
-    return `https://accounts.spotify.com/authorize?client_id=${spotifyConfig.clientId}&redirect_uri=${encodeURIComponent(spotifyConfig.redirectUri)}&scope=${encodeURIComponent(scopes.join(' '))}&response_type=code`;
+    const clientId = '49ee4717a4fe432db9a5995860ad74e3';
+    
+    // Use different redirect URL based on environment
+    const redirectUri = window.location.hostname === 'localhost' ? 
+      `${window.location.origin}/callback` :
+      'https://perfectplaylist.ai/callback';
+    
+    console.log("Spotify redirect URI:", redirectUri);
+    
+    return `https://accounts.spotify.com/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes.join(' '))}&response_type=code`;
   }
 
-  const url = getLoginURL([
+  const scopes = [
     'user-read-email',
     'playlist-read-private',
     'playlist-read-collaborative',
     'playlist-modify-public',
     'playlist-modify-private'
-  ]);
-  
-  // Right before opening the popup
+  ];
+
+  const url = getLoginURL(scopes);
   console.log("Opening Spotify login with URL:", url);
-  // Log the URL to ensure it contains the code
-  popup = window.open(url, 'Spotify', 'height=800,width=600');
+  
+  // Open the popup with specific dimensions and position
+  const width = 450;
+  const height = 730;
+  const left = window.screen.width / 2 - width / 2;
+  const top = window.screen.height / 2 - height / 2;
+  
+  // Clear any stored caches or bad tokens
+  sessionStorage.removeItem('spotifyAccessToken');
+  localStorage.removeItem('refreshTokenExpiry');
+  
+  // Open popup with improved window features
+  const popup = window.open(
+    url,
+    'Spotify',
+    `width=${width},height=${height},left=${left},top=${top},toolbar=0,location=0,menubar=0,resizable=1,scrollbars=1`
+  );
+  
   if (popup) {
-    console.log('Popup successfully opened');
+    console.log("Popup successfully opened");
+    
+    // Set a timer to check if popup is closed without completing auth
+    const popupCheckInterval = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(popupCheckInterval);
+        console.log("Auth popup was closed manually");
+        // Re-enable the login button
+        const connectBtn = document.getElementById('spotify-connect-btn');
+        if (connectBtn) {
+          connectBtn.disabled = false;
+          connectBtn.textContent = 'Connect Spotify';
+        }
+      }
+    }, 1000);
+    
+    // Disable login button while authenticating
+    const connectBtn = document.getElementById('spotify-connect-btn');
+    if (connectBtn) {
+      connectBtn.disabled = true;
+      connectBtn.textContent = 'Connecting...';
+    }
   } else {
-    console.log('Failed to open popup');
+    console.error("Failed to open popup - likely blocked by browser");
+    alert("Popup blocked! Please allow popups for this site to connect with Spotify.");
   }
 }
 
 // Export the login function to the global window object
 window.login = login;
 
-function getUserData(accessToken) {
-  console.log('Access Token before fetching user data:', accessToken);
-  return fetch(
-    'https://api.spotify.com/v1/me',
-    { 'headers': { 'Authorization': `Bearer ${accessToken}` } }
-  )
-    .then(response => {
-      console.log("Response from Spotify user data:", response);
-      if (!response.ok) {
-        throw new Error(`Spotify API responded with ${response.status}`);
+async function getUserData(accessToken) {
+  try {
+    console.log("Access Token before fetching user data:", accessToken);
+    const response = await fetch('https://api.spotify.com/v1/me', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
       }
-      return response;
     });
+
+    console.log("Response from Spotify user data:", response);
+    
+    if (response.status === 403) {
+      console.error("Spotify access denied (403) - token may be invalid");
+      // Force token refresh or re-authentication
+      sessionStorage.removeItem('spotifyAccessToken');
+      throw new Error("Spotify authorization required. Please try connecting again.");
+    }
+    
+    if (!response.ok) {
+      throw new Error(`Spotify API responded with ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error fetching user data:", error);
+    // Show user-friendly error
+    const connectBtn = document.getElementById('spotify-connect-btn');
+    if (connectBtn) {
+      connectBtn.disabled = false;
+      connectBtn.textContent = 'Reconnect Spotify';
+      connectBtn.classList.add('error');
+    }
+    throw error;
+  }
 }
 
 let refreshToken;
@@ -1285,170 +1354,99 @@ function populateUI(userDoc) {
 
 // Chat GPT Reqeusts
 async function createPlaylistHandler(event) {
+  event.preventDefault();
+  console.log("Create playlist button clicked");
+  
+  const descriptionInput = document.getElementById('playlist-description-input');
+  if (!descriptionInput || !descriptionInput.value.trim()) {
+    console.error("No description provided");
+    alert("Please enter a description for your playlist");
+    return;
+  }
+  
+  const description = descriptionInput.value.trim();
+  console.log("Playlist description:", description);
+  
+  // Show loading indicator
+  showLoadingUI();
+  
   try {
-    console.log("Begin create playlist handler");
-    event.preventDefault();
-    showLoadingUI();
-
-    const user = auth.currentUser; // Get the current user directly from Firebase Auth
-    if (!user) {
-      console.error("No user is currently signed in");
-      hideLoadingUI();
-      alert("No user is currently signed in. Please log in and try again.");
-      return;
+    // Get the Spotify access token from session storage
+    const accessToken = sessionStorage.getItem('spotifyAccessToken');
+    if (!accessToken) {
+      console.error("No access token found");
+      throw new Error("Please connect to Spotify first");
     }
-
-    const firebaseUID = user.uid; // Get the UID from the user object
-
-    const userData = await getDoc(doc(db, 'users', firebaseUID));
-    if (!userData || !userData.data()) {
-      console.error("No user data found for firebaseUID:", firebaseUID);
-      hideLoadingUI();
-      alert("Unable to retrieve your user information. Please try again.");
-      return;
+    
+    // Retrieve the current user Firebase UID
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      console.error("No Firebase user found");
+      throw new Error("Authentication error. Please try logging in again.");
     }
-    const { id: userID, accessToken: currentAccessToken } = userData.data();
-
-    const playlistDescription = document.getElementById("playlist-description-input").value;
-    if (!playlistDescription) {
-      console.error("No playlist description input found");
-      hideLoadingUI();
-      alert("Please enter a description for your playlist.");
-      return;
+    
+    // Generate playlist via our assistant
+    const { playlistId, playlistName } = await generatePlaylistWithAssistant(description);
+    
+    if (!playlistId) {
+      throw new Error("Failed to create playlist. Please try again with a different description.");
     }
-
-    try {
-      const playlistData = await generatePlaylistWithAssistant(playlistDescription);
-      const songList = playlistData.songs;
-      const playlistTitle = playlistData.title;
-
-      console.log("Current Access Token for Spotify:", currentAccessToken);
-      console.log("User ID for Spotify:", userID);
-
-      const newPlaylist = await createPlaylist(currentAccessToken, userID, playlistTitle, playlistDescription, firebaseUID);
-      console.log("New playlist created:", newPlaylist);
-
-      if (newPlaylist.id) {
-        // Process songs in batches to avoid rate limiting
-        const batchSize = 20; // Process 20 songs at a time
-        const batchDelay = 3000; // 3 second delay between batches (increased from 2 seconds)
-        const allSongs = [...songList]; // Create a copy to work with
-        const allTrackUris = [];
-        
-        // Show progress information to user
-        const totalSongs = allSongs.length;
-        console.log(`Processing ${totalSongs} songs in batches of ${batchSize} to avoid Spotify rate limits`);
-        
-        // Function to process a batch of songs
-        const processBatch = async (startIdx) => {
-          // Ensure access token is refreshed before processing batch
-          // This helps prevent 401 errors for long-running operations
-          if (startIdx > 0 && startIdx % 80 === 0) {
-            console.log("Preemptively refreshing access token to avoid expiration...");
-            try {
-              const newToken = await refreshSpotifyToken(firebaseUID);
-              if (newToken) {
-                console.log("Access token refreshed successfully during batch processing.");
-                sessionStorage.setItem('spotifyAccessToken', newToken);
-                currentAccessToken = newToken;
-              }
-            } catch (refreshError) {
-              console.error("Failed to refresh token during batch processing:", refreshError);
-              // Continue with current token and hope for the best
-            }
-          }
-          
-          const endIdx = Math.min(startIdx + batchSize, allSongs.length);
-          const batchSongs = allSongs.slice(startIdx, endIdx);
-          
-          console.log(`Processing batch ${Math.ceil(startIdx/batchSize) + 1} of ${Math.ceil(allSongs.length/batchSize)}: songs ${startIdx+1}-${endIdx} of ${totalSongs}`);
-          
-          // Process songs in this batch
-          const batchTrackUris = (await Promise.all(
-            batchSongs.map(async song => {
-              try {
-                // Clean and validate search query
-                const artist = typeof song.artist === 'string' ? song.artist.trim() : '';
-                const songTitle = typeof song.song === 'string' ? song.song.trim() : '';
-                
-                if (!artist || !songTitle) {
-                  console.error(`Invalid song data - missing artist or song title:`, song);
-                  return null;
-                }
-                
-                // Limit search query length to avoid API errors
-                const searchQuery = `${artist} ${songTitle}`.substring(0, 100);
-                console.log(`Searching Spotify for: "${searchQuery}"`);
-                
-                const searchResult = await searchSpotify(currentAccessToken, searchQuery, firebaseUID);
-                if (searchResult?.uri) {
-                  console.log(`Success: ${artist} - ${songTitle}`);
-                  return searchResult.uri;
-                } else {
-                  console.log(`That song did not work: ${artist} - ${songTitle}`);
-                  return null;
-                }
-              } catch (error) {
-                console.error(`Error searching for song "${song.artist} - ${song.song}":`, error);
-                return null;
-              }
-            })
-          )).filter(Boolean);
-          
-          // Add these tracks to our accumulator array
-          allTrackUris.push(...batchTrackUris);
-          
-          // Update the playlist with this batch of songs
-          if (batchTrackUris.length > 0) {
-            try {
-              await addTracksToPlaylist(currentAccessToken, newPlaylist.id, batchTrackUris, firebaseUID);
-              console.log(`Added ${batchTrackUris.length} tracks from batch to playlist`);
-            } catch (error) {
-              console.error("Error adding tracks to playlist:", error);
-            }
-          }
-          
-          // If there are more songs to process, wait and then process the next batch
-          if (endIdx < allSongs.length) {
-            console.log(`Waiting ${batchDelay/1000} seconds before processing next batch to avoid rate limits...`);
-            await new Promise(resolve => setTimeout(resolve, batchDelay));
-            return processBatch(endIdx);
-          }
-          
-          return allTrackUris;
-        };
-        
-        // Start the batch processing from the first song
-        await processBatch(0);
-        
-        console.log(`Completed processing all ${totalSongs} songs. Successfully added ${allTrackUris.length} tracks to the playlist.`);
-        embedPlaylist(newPlaylist.id);
-        enableButtons(currentAccessToken, newPlaylist);
-        console.log("Playlist embedded");
-        hideLoadingUI();
-
-        // Take a screenshot after the playlist is created, with a delay
-        console.log("Scheduling screenshot in 3 seconds to capture the completed playlist");
-        if (APP_CONFIG.testing.enableScreenshots) {
-          setTimeout(() => {
-            takeAutomaticScreenshot();
-          }, 3000); // 3 second delay before taking screenshot
-        }
-      } else {
-        console.error("Failed to create a new playlist");
-        hideLoadingUI();
-        alert("Failed to create a new playlist. Please try again.");
-      }
-    } catch (error) {
-      console.error("Playlist generation error:", error);
-      hideLoadingUI();
-      alert(error.message || "An error occurred while generating your playlist. Please try again.");
-      return;
-    }
-  } catch (error) {
-    console.error('Error in createPlaylistHandler: ', error);
+    
+    console.log("Playlist created successfully:", playlistId);
+    
+    // Embed the playlist in the UI
+    await embedPlaylist(playlistId);
+    
+    // Enable buttons for interacting with the playlist
+    await enableButtons(accessToken, { id: playlistId, name: playlistName });
+    
+    // Hide loading indicator
     hideLoadingUI();
-    alert("An error occurred while creating your playlist. Please try again.");
+    
+    // Show the playlist section
+    document.getElementById('playlist-info').style.display = 'block';
+    
+    // Add a little animation to draw attention to the playlist
+    const playlistViewer = document.getElementById('playlist-viewer');
+    playlistViewer.classList.add('highlight');
+    setTimeout(() => {
+      playlistViewer.classList.remove('highlight');
+    }, 2000);
+    
+  } catch (error) {
+    console.error("Error creating playlist:", error);
+    
+    // Hide loading indicator
+    hideLoadingUI();
+    
+    // Show a user-friendly error message
+    let errorMessage = "Failed to create your playlist. ";
+    
+    if (error.message.includes("403")) {
+      errorMessage += "Spotify access denied. Please reconnect your Spotify account.";
+      // Reset the connection button to allow reconnection
+      const connectBtn = document.getElementById('spotify-connect-btn');
+      if (connectBtn) {
+        connectBtn.disabled = false;
+        connectBtn.textContent = 'Reconnect Spotify';
+      }
+    } else if (error.message.includes("401")) {
+      errorMessage += "Your Spotify session has expired. Please reconnect.";
+      // Reset the auth state to force relogin
+      signOut();
+    } else if (error.message.includes("No tracks were found")) {
+      errorMessage += "We couldn't find songs matching your description. Try being more specific or using different terms.";
+    } else if (error.message.includes("rate limit")) {
+      errorMessage += "Spotify is temporarily busy. Please wait a moment and try again.";
+    } else {
+      errorMessage += "Please try again with a different description.";
+    }
+    
+    // Display the error to the user
+    alert(errorMessage);
+    
+    // Log the error for debugging
+    console.error("Detailed error:", error);
   }
 }
 
@@ -1578,52 +1576,69 @@ async function generatePlaylistWithAssistant(description) {
 }
 
 // Move directly to the spotifyAPI function, removing the checkRunStatus function
-async function spotifyAPI(token, url, method = "GET", body = {}, firebaseUID) {
+async function spotifyAPI(token, url, method, body, firebaseUID) {
+  // Default parameters
+  method = method || "GET";
+  body = body || {};
+
   const options = {
     method,
     headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
   };
-  if (method !== "GET") {
+
+  // Only add body for non-GET requests
+  if (method !== 'GET') {
     options.body = JSON.stringify(body);
   }
 
-  let result;
   try {
-    result = await fetch(url, options);
-  } catch (error) {
-    console.error(`Fetch failed: ${error}`);
-    throw new Error(error);
-  }
-
-   // Check for Unauthorized (401) response
-   if (result.status === 401) {
-    console.log("Access token expired, attempting to refresh...");
-    const newToken = await refreshSpotifyToken(firebaseUID); // Refresh the token
-    if (newToken) {
-      console.log("Access token refreshed successfully.");
-      options.headers.Authorization = `Bearer ${newToken}`; // Update the Authorization header with the new token
-      result = await fetch(url, options); // Retry the request with the new token
+    const response = await fetch(url, options);
+    
+    // Handle token refresh for 401 errors
+    if (response.status === 401 && firebaseUID) {
+      console.log("Token expired, attempting to refresh...");
+      const newToken = await refreshSpotifyToken(firebaseUID);
+      
+      if (newToken) {
+        console.log("Token refreshed successfully, retrying request");
+        
+        // Update the authorization header with the new token
+        options.headers.Authorization = `Bearer ${newToken}`;
+        
+        // Retry the request with the new token
+        const retryResponse = await fetch(url, options);
+        
+        if (!retryResponse.ok) {
+          throw new Error(`Spotify API error after token refresh: ${retryResponse.status}`);
+        }
+        
+        if (method === 'DELETE' || method === 'PUT' || response.status === 204) {
+          return retryResponse;
+        }
+        
+        return await retryResponse.json();
+      }
     }
-  }
-
-
-  if (!result.ok) {
-    throw new Error(`Spotify API request failed with status ${result.status}`);
-  }
-
-  let json;
-  try {
-    json = await result.json();
+    
+    // For successful responses or non-401 errors
+    if (!response.ok) {
+      throw new Error(`Spotify API error: ${response.status}`);
+    }
+    
+    // For DELETE and some PUT responses, there's no JSON
+    if (method === 'DELETE' || method === 'PUT' || response.status === 204) {
+      return response;
+    }
+    
+    return await response.json();
   } catch (error) {
-    console.error(`Error parsing JSON: ${error}`);
-    throw new Error(error);
+    console.error(`SpotifyAPI error for ${url}:`, error);
+    throw error;
   }
-  return json;
 }
-
 
 // And then call spotifyAPI like this
 async function createPlaylist(token, userID, playlistName, description, firebaseUID) {
@@ -1665,24 +1680,76 @@ async function createPlaylist(token, userID, playlistName, description, firebase
 
 
 async function searchSpotify(token, query, firebaseUID, type = "track") {
-  // Retry logic for handling rate limits
-  const maxRetries = 3;
-  const initialRetryDelay = 2000; // 2 seconds
-  
   const searchWithRetry = async (retryCount = 0) => {
     try {
-      const data = await spotifyAPI(token, `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=${type}&limit=1`, 'GET', {}, firebaseUID);
-      return data[`${type}s`].items.length > 0 ? data[`${type}s`].items[0] : null;
+      // Add better query formatting for more accurate results
+      let formattedQuery = query;
+      // If the query contains artist - song format, optimize it
+      if (query.includes(' - ')) {
+        const [artist, title] = query.split(' - ').map(part => part.trim());
+        formattedQuery = `artist:${artist} track:${title}`;
+      }
+      
+      console.log(`Searching Spotify for: ${formattedQuery}`);
+      
+      const response = await spotifyAPI(token, `https://api.spotify.com/v1/search?q=${encodeURIComponent(formattedQuery)}&type=${type}&limit=10`, "GET", {}, firebaseUID);
+      
+      if (!response.ok) {
+        throw new Error(`Spotify search failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      // Check if we got any results
+      if (!data.tracks || !data.tracks.items || data.tracks.items.length === 0) {
+        console.log(`No results found for: ${query}`);
+        // Try a more general search by removing any special formatting
+        if (!query.includes(' - ')) {
+          return null; // We've already tried the general search
+        }
+        
+        // Retry with a more general search
+        const simpleQuery = query.replace(' - ', ' ');
+        console.log(`Retrying with simpler query: ${simpleQuery}`);
+        const simpleResponse = await spotifyAPI(token, `https://api.spotify.com/v1/search?q=${encodeURIComponent(simpleQuery)}&type=${type}&limit=10`, "GET", {}, firebaseUID);
+        
+        if (!simpleResponse.ok) {
+          throw new Error(`Spotify simple search failed: ${simpleResponse.status}`);
+        }
+        
+        const simpleData = await simpleResponse.json();
+        if (!simpleData.tracks || !simpleData.tracks.items || simpleData.tracks.items.length === 0) {
+          return null; // Still no results
+        }
+        
+        return simpleData.tracks.items[0];
+      }
+      
+      return data.tracks.items[0];
     } catch (error) {
-      // If we hit rate limit and have retries left
-      if (error.message.includes('429') && retryCount < maxRetries) {
-        const retryDelay = initialRetryDelay * (2 ** retryCount); // Exponential backoff using ** operator
-        console.log(`Rate limit hit while searching. Retrying in ${retryDelay/1000} seconds (attempt ${retryCount + 1}/${maxRetries})...`);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      console.error(`Error searching Spotify (attempt ${retryCount + 1}):`, error);
+      
+      // Handle token expiration
+      if (error.message.includes('401') && retryCount < 2) {
+        console.log("Token expired during search, trying to refresh...");
+        try {
+          const newToken = await refreshSpotifyToken(firebaseUID);
+          if (newToken) {
+            console.log("Token refreshed, retrying search...");
+            token = newToken;
+            return searchWithRetry(retryCount + 1);
+          }
+        } catch (refreshError) {
+          console.error("Failed to refresh token during search:", refreshError);
+        }
+      }
+      
+      if (retryCount < 2) {
+        console.log(`Retrying search (attempt ${retryCount + 2})...`);
         return searchWithRetry(retryCount + 1);
       }
-      console.error(`Search failed for "${query}": ${error.message}`);
-      return null; // Return null for failed searches rather than crashing
+      
+      return null;
     }
   };
   
@@ -1690,92 +1757,80 @@ async function searchSpotify(token, query, firebaseUID, type = "track") {
 }
 
 async function addTracksToPlaylist(token, playlistId, trackUris, firebaseUID) {
-  // Handle large playlists by processing in batches of 100 (Spotify's maximum)
-  const maxTracksPerRequest = 100;
-  const maxRetries = 5; // Increased from 3
-  const initialRetryDelay = 3000; // 3 seconds
+  if (!trackUris || trackUris.length === 0) {
+    console.error("No tracks to add to playlist");
+    throw new Error("No tracks were found to add to playlist");
+  }
   
-  console.log(`Adding ${trackUris.length} tracks to playlist in batches of ${maxTracksPerRequest}`);
+  console.log(`Adding ${trackUris.length} tracks to playlist ${playlistId}`);
   
-  // Process tracks in batches to avoid hitting Spotify's limits
-  for (let i = 0; i < trackUris.length; i += maxTracksPerRequest) {
-    const batch = trackUris.slice(i, Math.min(i + maxTracksPerRequest, trackUris.length));
-    console.log(`Processing batch ${Math.ceil((i+1)/maxTracksPerRequest)} of ${Math.ceil(trackUris.length/maxTracksPerRequest)}: ${i+1}-${Math.min(i+maxTracksPerRequest, trackUris.length)} of ${trackUris.length} tracks`);
-    
-    // Preemptively refresh token if processing a large playlist
-    if (i > 0 && i % 300 === 0) {
-      console.log("Preemptively refreshing access token for large playlist...");
-      try {
-        const newToken = await refreshSpotifyToken(firebaseUID);
-        if (newToken) {
-          console.log("Token refreshed during batch processing");
-          token = newToken; // Use the new token for subsequent requests
-          sessionStorage.setItem('spotifyAccessToken', newToken);
-        }
-      } catch (refreshError) {
-        console.error("Failed to refresh token during batch processing:", refreshError);
-        // Continue with current token
+  // First check if we have any valid tracks
+  const validTrackUris = trackUris.filter(uri => uri && typeof uri === 'string');
+  
+  if (validTrackUris.length === 0) {
+    console.error("All track URIs were invalid");
+    throw new Error("All tracks failed to be found on Spotify");
+  }
+  
+  // Add tracks in batches of 100 (Spotify API limit)
+  const batchSize = 100;
+  const batches = [];
+  
+  for (let i = 0; i < validTrackUris.length; i += batchSize) {
+    batches.push(validTrackUris.slice(i, i + batchSize));
+  }
+  
+  let retryCount = 0;
+  const maxRetries = 3;
+  
+  for (const batch of batches) {
+    try {
+      const response = await spotifyAPI(token, `https://api.spotify.com/v1/playlists/${playlistId}/tracks`, "POST", {
+        uris: batch
+      }, firebaseUID);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to add tracks to playlist: ${response.status}`);
       }
-    }
-    
-    // Try to add this batch with retry logic
-    let success = false;
-    let retryCount = 0;
-    
-    while (!success && retryCount < maxRetries) {
-      try {
-        await spotifyAPI(token, `https://api.spotify.com/v1/playlists/${playlistId}/tracks`, 'POST', { uris: batch }, firebaseUID);
-        success = true;
-        console.log(`Successfully added batch ${Math.ceil((i+1)/maxTracksPerRequest)} (${batch.length} tracks)`);
-        
-        // Add a small delay between batches to avoid rate limiting
-        if (i + maxTracksPerRequest < trackUris.length) {
-          const delay = 1000; // 1 second between batches
-          console.log(`Waiting ${delay/1000} seconds before processing next batch...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
+      
+      console.log(`Successfully added ${batch.length} tracks to playlist`);
     } catch (error) {
-        // If token expired, try to refresh it
-        if (error.message.includes('401') || error.message.includes('expired')) {
-          console.log("Token expired during track addition. Refreshing...");
-          try {
-            const newToken = await refreshSpotifyToken(firebaseUID);
-            if (newToken) {
-              console.log("Token refreshed successfully");
-              token = newToken; // Update the token
-              sessionStorage.setItem('spotifyAccessToken', newToken);
-              // Don't increment retry count for token refreshes
-              continue;
-            }
-          } catch (refreshError) {
-            console.error("Failed to refresh token:", refreshError);
-          }
-        }
-        
-        // If we hit rate limit, use exponential backoff
-        if (error.message.includes('429')) {
-          retryCount++;
-          const retryDelay = initialRetryDelay * (2 ** retryCount); // Exponential backoff using ** operator
-          console.log(`Rate limit hit. Retrying in ${retryDelay/1000} seconds (attempt ${retryCount}/${maxRetries})...`);
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
-          continue;
-        }
-        
-        // For other errors, retry with exponential backoff
+      console.error(`Error adding tracks batch to playlist:`, error);
+      
+      // If we failed due to token, try to refresh and retry
+      if (error.message.includes('401') && retryCount < maxRetries) {
+        console.log("Token expired during add tracks, trying to refresh...");
         retryCount++;
-        const retryDelay = initialRetryDelay * (2 ** retryCount); // Exponential backoff using ** operator
-        console.log(`Error adding tracks: ${error.message}. Retrying in ${retryDelay/1000} seconds (attempt ${retryCount}/${maxRetries})...`);
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        try {
+          const newToken = await refreshSpotifyToken(firebaseUID);
+          if (newToken) {
+            console.log("Token refreshed, retrying add tracks...");
+            token = newToken;
+            // Retry this batch
+            const retryResponse = await spotifyAPI(token, `https://api.spotify.com/v1/playlists/${playlistId}/tracks`, "POST", {
+              uris: batch
+            }, firebaseUID);
+            
+            if (!retryResponse.ok) {
+              throw new Error(`Failed to add tracks after token refresh: ${retryResponse.status}`);
+            }
+            console.log(`Successfully added ${batch.length} tracks after token refresh`);
+          }
+        } catch (refreshError) {
+          console.error("Failed to refresh token during add tracks:", refreshError);
+          throw new Error("Failed to add tracks after token refresh attempt");
+        }
+      } else {
+        // For non-token related errors or if we've exceeded retries
+        throw error;
       }
-    }
-    
-    // If we couldn't add this batch after all retries, throw an error
-    if (!success) {
-      throw new Error(`Failed to add batch of tracks after ${maxRetries} attempts`);
     }
   }
   
-  return true;
+  return {
+    playlistId,
+    addedTracks: validTrackUris.length
+  };
 }
 
 // Embed the playlist so it's visible
