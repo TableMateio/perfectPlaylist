@@ -1289,6 +1289,88 @@ function login() {
   }
 }
 
+// Add event listener to handle messages from the popup
+window.addEventListener('message', async (event) => {
+  console.log('Received message from popup:', event.origin, event.data);
+  
+  // Validate origin to prevent security issues
+  if (event.origin !== 'https://perfectplaylist.ai' && 
+      event.origin !== 'https://playlist-gpt.web.app' && 
+      event.origin !== 'https://playlist-gpt.firebaseapp.com' &&
+      !event.origin.includes('gptplaylist.webflow.io') &&
+      !event.origin.includes('localhost')) {
+    console.error('Message received from unauthorized origin:', event.origin);
+    return;
+  }
+  
+  let data;
+  try {
+    // Parse data if it's a string
+    data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+    console.log('Parsed message data:', data);
+  } catch (error) {
+    console.error('Error parsing message data:', error);
+    return;
+  }
+  
+  // Process Spotify auth code
+  if (data.type === 'code' && data.code) {
+    console.log('Received Spotify auth code from popup');
+    document.getElementById('spotify-connect-btn').disabled = true;
+    document.getElementById('spotify-connect-btn').textContent = 'Connecting...';
+    
+    try {
+      // Exchange code for token using your Firebase function
+      const response = await fetch('https://us-central1-playlist-gpt.cloudfunctions.net/exchangeCodeForTokens', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          code: data.code,
+          redirectUri: spotifyConfig.redirectUri
+        })
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Token exchange failed: ${response.status} - ${errorText}`);
+      }
+      
+      const tokenData = await response.json();
+      console.log('Successfully exchanged code for tokens');
+      
+      // Store tokens in session storage
+      sessionStorage.setItem('spotifyAccessToken', tokenData.access_token);
+      sessionStorage.setItem('spotifyRefreshToken', tokenData.refresh_token);
+      sessionStorage.setItem('spotifyExpiry', Date.now() + (tokenData.expires_in * 1000));
+      
+      // Update UI to show connected state
+      document.getElementById('spotify-connect-btn').textContent = 'Connected!';
+      document.getElementById('create-section').style.display = 'block';
+      document.getElementById('connect-spotify').style.display = 'none';
+      
+      // Get user profile info
+      const userResponse = await fetch('https://api.spotify.com/v1/me', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`
+        }
+      });
+      
+      if (userResponse.ok) {
+        const userProfile = await userResponse.json();
+        console.log('User logged in:', userProfile.display_name || userProfile.id);
+        sessionStorage.setItem('spotifyUserId', userProfile.id);
+      }
+    } catch (error) {
+      console.error('Error during auth code exchange:', error);
+      document.getElementById('spotify-connect-btn').disabled = false;
+      document.getElementById('spotify-connect-btn').textContent = 'Connect Spotify';
+      alert('Failed to connect with Spotify. Please try again.');
+    }
+  }
+});
+
 // Expose the login function to the window object for HTML onclick access
 window.login = login;
 
