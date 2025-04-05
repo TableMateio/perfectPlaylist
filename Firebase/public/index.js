@@ -2316,6 +2316,80 @@ function unfollowPlaylist(playlistId) {
     playlistViewerDiv.appendChild(loadingMsg);
   }
 
+  function showUnfollowSuccess() {
+    // Show success message and trigger animation
+    if (playlistViewerDiv) {
+      playlistViewerDiv.innerHTML = '';
+      const textBlock = document.createElement('p');
+      textBlock.className = 'playlist-coming';
+      textBlock.innerHTML = 'Playlist removed from your Spotify.<br><br>Create a new playlist when you\'re ready!';
+      playlistViewerDiv.appendChild(textBlock);
+      
+      // Hide the buttons
+      const element = document.getElementById("playlist-buttons");
+      if (element) {
+        element.classList.add("unauthenticated");
+      }
+      
+      console.log("Setting up transition sequence");
+      
+      // Start the animation sequence with a slight delay
+      setTimeout(() => {
+        console.log("Starting animations for smooth transition");
+        
+        // First shrink and fade the playlist container
+        const playlistSection = document.getElementById('playlist-info');
+        const buttonsElement = document.getElementById("playlist-buttons");
+        
+        if (playlistSection) {
+          // Make sure buttons are hidden before animation starts
+          if (buttonsElement) {
+            buttonsElement.classList.add("unauthenticated");
+          }
+          
+          // Add class for fade-out animation
+          playlistSection.classList.add('fade-out-container');
+          
+          // After container fades out
+          setTimeout(() => {
+            console.log("Playlist container faded out, starting recenter animation");
+            
+            // Hide the container
+            playlistSection.style.display = 'none';
+            playlistSection.classList.remove('fade-out-container');
+            
+            // Remove playlist-visible class to trigger main container transition
+            document.body.classList.remove('playlist-visible');
+            
+            // Reset input field for next playlist
+            const textarea = document.getElementById('playlist-description-input');
+            if (textarea) {
+              textarea.value = '';
+              
+              // Subtly highlight the textarea to draw attention back to it
+              setTimeout(() => {
+                textarea.classList.add('highlight-input');
+                setTimeout(() => {
+                  textarea.classList.remove('highlight-input');
+                }, 1500);
+              }, 400); // Small delay to time highlight with recenter animation
+            }
+          }, 1000); // Match animation duration
+        }
+      }, 3000); // Delay before starting animation sequence
+    }
+  }
+
+  function showUnfollowError() {
+    if (playlistViewerDiv) {
+      playlistViewerDiv.innerHTML = '';
+      const errorMsg = document.createElement('p');
+      errorMsg.className = 'playlist-coming';
+      errorMsg.textContent = 'There was an error removing the playlist. Please try again.';
+      playlistViewerDiv.appendChild(errorMsg);
+    }
+  }
+
   // Use fetch directly instead of spotifyAPI to avoid any potential issues
   fetch(`https://api.spotify.com/v1/playlists/${playlistId}/followers`, {
     method: 'DELETE',
@@ -2330,71 +2404,12 @@ function unfollowPlaylist(playlistId) {
     // DELETE requests typically return 204 No Content (no response body)
     if (response.status === 200 || response.status === 204) {
       console.log("Playlist successfully unfollowed");
-      
-      // Update the UI
-      if (playlistViewerDiv) {
-        playlistViewerDiv.innerHTML = '';
-        const textBlock = document.createElement('p');
-        textBlock.className = 'playlist-coming';
-        textBlock.innerHTML = 'Playlist removed from your Spotify.<br><br>Create a new playlist when you\'re ready!';
-        playlistViewerDiv.appendChild(textBlock);
-        
-        // Hide the buttons immediately
-        const element = document.getElementById("playlist-buttons");
-        if (element) {
-          element.classList.add("unauthenticated");
-        }
-        
-        console.log("Setting up transition sequence");
-        
-        // Start the animation sequence
-        setTimeout(() => {
-          console.log("Starting animations for smooth transition");
-          
-          // First shrink and fade the playlist container, but keep buttons visible
-          const playlistSection = document.getElementById('playlist-info');
-          const buttonsElement = document.getElementById("playlist-buttons");
-          
-          if (playlistSection) {
-            // Make sure buttons are hidden before animation starts
-            if (buttonsElement) {
-              buttonsElement.classList.add("unauthenticated");
-            }
-            
-            // Add class for fade-out animation
-            playlistSection.classList.add('fade-out-container');
-            
-            // After container fades out
-            setTimeout(() => {
-              console.log("Playlist container faded out, starting recenter animation");
-              
-              // Hide the container
-              playlistSection.style.display = 'none';
-              playlistSection.classList.remove('fade-out-container');
-              
-              // Remove playlist-visible class to trigger main container transition
-              document.body.classList.remove('playlist-visible');
-              
-              // Reset input field for next playlist
-              const textarea = document.getElementById('playlist-description-input');
-              if (textarea) {
-                textarea.value = '';
-                
-                // Subtly highlight the textarea to draw attention back to it
-                setTimeout(() => {
-                  textarea.classList.add('highlight-input');
-                  setTimeout(() => {
-                    textarea.classList.remove('highlight-input');
-                  }, 1500);
-                }, 400); // Small delay to time highlight with recenter animation
-              }
-            }, 1000); // Match animation duration
-          }
-        }, 3000); // Delay before starting animation sequence
-      }
+      showUnfollowSuccess();
     } else if (response.status === 401) {
       // Handle expired token
       console.log("Token expired during unfollow. Refreshing...");
+      
+      // Try to refresh token, but have a fallback if it fails
       refreshSpotifyToken(firebaseUID)
         .then(newToken => {
           if (newToken) {
@@ -2410,81 +2425,51 @@ function unfollowPlaylist(playlistId) {
               }
             });
           } else {
-            throw new Error("Failed to refresh token");
+            // Fallback: Try using the current token anyway since refresh failed
+            console.log("Token refresh failed. Attempting unfollow with existing token as fallback");
+            return fetch(`https://api.spotify.com/v1/playlists/${playlistId}/followers`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              }
+            });
           }
         })
         .then(retryResponse => {
           if (retryResponse.status === 200 || retryResponse.status === 204) {
-            console.log("Playlist successfully unfollowed after token refresh");
-            
-            // Show success message and trigger animation
-            if (playlistViewerDiv) {
-              playlistViewerDiv.innerHTML = '';
-              const textBlock = document.createElement('p');
-              textBlock.className = 'playlist-coming';
-              textBlock.innerHTML = 'Playlist removed from your Spotify.<br><br>Create a new playlist when you\'re ready!';
-              playlistViewerDiv.appendChild(textBlock);
-              
-              // Hide the buttons
-              const element = document.getElementById("playlist-buttons");
-              if (element) {
-                element.classList.add("unauthenticated");
-              }
-              
-              console.log("Setting up transition sequence after token refresh");
-              
-              // Start the animation sequence with a slight delay
-              setTimeout(() => {
-                console.log("Starting animations for smooth transition after token refresh");
-                
-                // First shrink and fade the playlist container
-                const playlistSection = document.getElementById('playlist-info');
-                
-                if (playlistSection) {
-                  // Add class for fade-out animation
-                  playlistSection.classList.add('fade-out-container');
-                  
-                  // After container fades out
-                  setTimeout(() => {
-                    console.log("Playlist container faded out, starting recenter animation");
-                    
-                    // Hide the container
-                    playlistSection.style.display = 'none';
-                    playlistSection.classList.remove('fade-out-container');
-                    
-                    // Remove playlist-visible class to trigger main container transition
-                    document.body.classList.remove('playlist-visible');
-                    
-                    // Reset input field for next playlist
-                    const textarea = document.getElementById('playlist-description-input');
-                    if (textarea) {
-                      textarea.value = '';
-                      
-                      // Subtly highlight the textarea to draw attention back to it
-                      setTimeout(() => {
-                        textarea.classList.add('highlight-input');
-                        setTimeout(() => {
-                          textarea.classList.remove('highlight-input');
-                        }, 1500);
-                      }, 400); // Small delay to time highlight with recenter animation
-                    }
-                  }, 1000); // Match animation duration
-                }
-              }, 3000); // Delay before starting animation sequence
-            }
+            console.log("Playlist successfully unfollowed after token refresh or fallback");
+            showUnfollowSuccess();
           } else {
-            throw new Error(`Failed to unfollow playlist after token refresh. Status: ${retryResponse.status}`);
+            console.error("Unfollow failed after token refresh or fallback attempt", retryResponse.status);
+            throw new Error(`Failed to unfollow playlist. Status: ${retryResponse.status}`);
           }
         })
         .catch(refreshError => {
           console.error("Error during token refresh or retry:", refreshError);
-          if (playlistViewerDiv) {
-            playlistViewerDiv.innerHTML = '';
-            const errorMsg = document.createElement('p');
-            errorMsg.className = 'playlist-coming';
-            errorMsg.textContent = 'There was an error removing the playlist. Please try again.';
-            playlistViewerDiv.appendChild(errorMsg);
-          }
+          
+          // Final fallback attempt for unfollow - direct call with original token
+          console.log("Making final attempt to unfollow playlist with original token");
+          fetch(`https://api.spotify.com/v1/playlists/${playlistId}/followers`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            }
+          })
+          .then(finalResponse => {
+            if (finalResponse.status === 200 || finalResponse.status === 204) {
+              console.log("Playlist successfully unfollowed on final attempt");
+              showUnfollowSuccess();
+            } else {
+              console.error("Final unfollow attempt failed with status:", finalResponse.status);
+              showUnfollowError();
+            }
+          })
+          .catch(finalError => {
+            console.error("Error in final unfollow attempt:", finalError);
+            showUnfollowError();
+          });
         });
     } else {
       throw new Error(`Failed to unfollow playlist. Status: ${response.status}`);
