@@ -2496,6 +2496,7 @@ function unfollowPlaylist(playlistId) {
   // Give DOM a moment to ensure everything is loaded
   setTimeout(() => {
     const BRANDING_IMAGE_KEY = 'perfectPlaylist_brandingImage';
+    const LOGO_STYLE_KEY = 'perfectPlaylist_logoStyle';
     const settingsButton = document.getElementById('settings-button');
     const settingsPanel = document.getElementById('settings-panel');
     
@@ -2511,6 +2512,7 @@ function unfollowPlaylist(playlistId) {
     
     const backgroundTypeToggle = document.getElementById('background-type-toggle');
     const brandingOptions = document.querySelectorAll('input[name="branding-option"]');
+    const logoOptions = document.querySelectorAll('input[name="logo-option"]');
     
     // Initialize background toggle with the current preference
     const currentBackgroundPreference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'image';
@@ -2520,6 +2522,14 @@ function unfollowPlaylist(playlistId) {
     const currentBrandingImage = localStorage.getItem(BRANDING_IMAGE_KEY) || 'logotype.png';
     brandingOptions.forEach(option => {
       if (option.value === currentBrandingImage) {
+        option.checked = true;
+      }
+    });
+    
+    // Initialize logo style radio with the current preference or default
+    const currentLogoStyle = localStorage.getItem(LOGO_STYLE_KEY) || 'logo.svg';
+    logoOptions.forEach(option => {
+      if (option.value === currentLogoStyle) {
         option.checked = true;
       }
     });
@@ -2596,6 +2606,28 @@ function unfollowPlaylist(playlistId) {
       });
     });
     
+    // Handle logo style selection
+    logoOptions.forEach(option => {
+      option.addEventListener('change', (e) => {
+        console.log('Logo option changed:', e.target.value);
+        if (e.target.checked) {
+          const selectedLogo = e.target.value;
+          localStorage.setItem(LOGO_STYLE_KEY, selectedLogo);
+          
+          // Update the logo on the page
+          const logoImage = document.querySelector('.logo img');
+          if (logoImage) {
+            console.log('Updating logo image to:', selectedLogo);
+            // If it's an SVG, keep the path as is, otherwise prepend branding/
+            const logoPath = selectedLogo === 'logo.svg' ? selectedLogo : `branding/${selectedLogo}`;
+            logoImage.src = logoPath;
+          } else {
+            console.error('Logo image element not found');
+          }
+        }
+      });
+    });
+    
     // Set initial branding image
     const brandingImage = document.querySelector('img[alt="Perfect Playlist"]');
     if (brandingImage) {
@@ -2603,6 +2635,17 @@ function unfollowPlaylist(playlistId) {
       brandingImage.src = `branding/${currentBrandingImage}`;
     } else {
       console.error('Branding image element not found for initial setup');
+    }
+    
+    // Set initial logo style
+    const logoImage = document.querySelector('.logo img');
+    if (logoImage) {
+      console.log('Setting initial logo style to:', currentLogoStyle);
+      // If it's an SVG, keep the path as is, otherwise prepend branding/
+      const logoPath = currentLogoStyle === 'logo.svg' ? currentLogoStyle : `branding/${currentLogoStyle}`;
+      logoImage.src = logoPath;
+    } else {
+      console.error('Logo image element not found for initial setup');
     }
     
     console.log('Settings panel initialization complete');
