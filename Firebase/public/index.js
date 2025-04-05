@@ -1229,60 +1229,41 @@ const spotifyConfig = {
 };
 
 console.log("Spotify redirect URI:", spotifyConfig.redirectUri);
+console.log("Spotify application ready for authentication");
 
-const params = new URLSearchParams(window.location.search);
-// Load OpenAI API key from ENV file
-const OPENAI_API_KEY = ENV.OPENAI_API_KEY;
-let popup = null;
-
-// Use Firebase config from ENV file
-const firebaseConfig = {
-  apiKey: ENV.FIREBASE_API_KEY,
-  authDomain: ENV.FIREBASE_AUTH_DOMAIN,
-  databaseURL: ENV.FIREBASE_DATABASE_URL,
-  projectId: ENV.FIREBASE_PROJECT_ID,
-  storageBucket: ENV.FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: ENV.FIREBASE_MESSAGING_SENDER_ID,
-  appId: ENV.FIREBASE_APP_ID,
-  measurementId: ENV.FIREBASE_MEASUREMENT_ID
-};
-
-// Initialize Firebase with better error handling
-let app, auth, functions, db;
-try {
-  console.log("Initializing Firebase with config:", 
-    { 
-      projectId: firebaseConfig.projectId,
-      appId: firebaseConfig.appId 
-    }
-  );
-
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  functions = getFunctions(app);
+// Handle API responses - improved to handle 304 responses
+function handleAPIResponse(response, operationName = 'API operation') {
+  console.log(`${operationName} response:`, {
+    status: response.status,
+    statusText: response.statusText,
+    url: response.url
+  });
   
-  // Try to initialize Firestore with error handling
-  try {
-    db = getFirestore(app);
-    console.log("Firestore initialized successfully");
-  } catch (firestoreError) {
-    console.error("Error initializing Firestore:", firestoreError);
-    console.log("The app will continue with limited functionality");
+  if (response.status === 304) {
+    console.log(`${operationName} returned 304 Not Modified - using cached data`);
+    // 304 is not an error, it means the resource hasn't changed
+    return response;
   }
-} catch (error) {
-  console.error("Firebase initialization error:", error);
-  console.log("Continuing with limited app functionality");
   
-  // Create fallback Firebase instances if initialization failed
-  if (!app) app = { name: 'fallback-app' };
-  if (!auth) auth = { currentUser: null, onAuthStateChanged: (cb) => cb(null) };
-  if (!db) db = { doc: () => ({ get: () => Promise.resolve(null) }) };
-  if (!functions) functions = {};
+  if (!response.ok) {
+    const errorMsg = `${operationName} failed with status ${response.status}`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+  
+  return response;
 }
 
-// Initiates Spotify sign-in flow
+// Initiates Spotify sign-in flow with additional checks
 function login() {
   function getLoginURL(scopes) {
+    // Verify client ID is configured properly
+    if (!spotifyConfig.clientId || spotifyConfig.clientId === "YOUR_CLIENT_ID") {
+      console.error("Spotify client ID is not properly configured");
+      alert("Spotify authentication is not properly configured. Please contact the administrator.");
+      return null;
+    }
+    
     return `https://accounts.spotify.com/authorize?client_id=${spotifyConfig.clientId}&redirect_uri=${encodeURIComponent(spotifyConfig.redirectUri)}&scope=${encodeURIComponent(scopes.join(' '))}&response_type=code`;
   }
 
@@ -1294,564 +1275,63 @@ function login() {
     'playlist-modify-private'
   ]);
   
+  if (!url) return; // Exit if URL generation failed
+  
   // Right before opening the popup
   console.log("Opening Spotify login with URL:", url);
   // Log the URL to ensure it contains the code
-  popup = window.open(url, 'Spotify', 'height=800,width=600');
+  const popup = window.open(url, 'Spotify', 'height=800,width=600');
   if (popup) {
     console.log('Popup successfully opened');
   } else {
-    console.log('Failed to open popup');
+    console.error('Failed to open popup - check if popup blocker is enabled');
+    alert("Your browser blocked the popup. Please allow popups for this site and try again.");
   }
 }
 
-// Export the login function to the global window object
+// Expose the login function to the window object for HTML onclick access
 window.login = login;
 
-function getUserData(accessToken) {
-  console.log('Access Token before fetching user data:', accessToken);
-  return fetch(
-    'https://api.spotify.com/v1/me',
-    { 'headers': { 'Authorization': `Bearer ${accessToken}` } }
-  )
-    .then(response => {
-      console.log("Response from Spotify user data:", response);
-      if (!response.ok) {
-        throw new Error(`Spotify API responded with ${response.status}`);
-      }
-      return response;
-    });
-}
-
-let refreshToken;
-
-// Listen to messages from the popup
-window.addEventListener('message', event => {
-  if (event.source !== popup) {
-    return;
-  }
-  console.log("Received a message from the popup");
-
-  let hash;
+// Update the fetchJson function to handle 304 responses
+async function fetchJson(url, options = {}) {
   try {
-    hash = JSON.parse(event.data);
-  } catch (error) {
-    console.error("Failed to parse message data:", error);
-    return;
-  }
-  console.log("Parsed message data:", hash);
-
-  if (hash.type !== 'code') {
-    console.error("Unexpected message type:", hash.type);
-    return;
-  }
-
-  const code = hash.code;
-  // Right after you receive the code
-  console.log("Sending code to backend:", code);
-  fetch('https://us-central1-playlist-gpt.cloudfunctions.net/exchangeCodeForTokens', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ code: code, redirectUri: spotifyConfig.redirectUri }),
-  })
-    .then(response => response.json())
-    .then(data => {
-      console.log("Received tokens from exchangeCodeForTokens:", data);
-
-      const accessToken = data.accessToken;
-      refreshToken = data.refreshToken;
-
-      console.log('Access Token:', accessToken);
-      console.log('Refresh Token:', refreshToken);
-
-      sessionStorage.setItem('spotifyAccessToken', accessToken);
-      sessionStorage.setItem('spotifyRefreshToken', refreshToken);
-
-      return getUserData(accessToken);
-    })
-    .then(response => {
-      console.log("Received user data response:", response);
-      return response.json();
-    })
-    .then(parsedData => {
-      console.log("Calling signUp with data:", parsedData);
-
-      const data = parsedData;
-      const accessToken = sessionStorage.getItem('spotifyAccessToken');
-
-      console.log('Using stored Access Token:', accessToken);
-
-      return fetch('https://us-central1-playlist-gpt.cloudfunctions.net/signUp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ spotifyData: data, accessToken: accessToken, refreshToken: refreshToken }),
-      });
-    })
-    .then(result => result.json())
-    .then(result => {
-      console.log("Received result from signUp function:", result);
-
-      const token = result.token;
-      return signInWithCustomToken(auth, token);
-    })
-    .then(userCredential => {
-      console.log("Signed in with custom token:", userCredential);
+    const response = await fetch(url, options);
     
-      if (userCredential.user) {
-        sessionStorage.setItem('firebaseUID', userCredential.user.uid);
-        const firebaseUID = sessionStorage.getItem('firebaseUID');
-        console.log('Stored Firebase UID:', firebaseUID);
-        const userDoc = doc(db, 'users', firebaseUID);
-        return refreshSpotifyToken(firebaseUID)
-          .then(newAccessToken => {
-            console.log("Refreshed Access Token:", newAccessToken);
-    
-            sessionStorage.setItem('spotifyAccessToken', newAccessToken);
-    
-            return getDoc(userDoc);
-          });
-      } else {
-        console.error("userCredential.user is null");
-        throw new Error("userCredential.user is null");
-      }
-    })
-    .then(docSnap => {
-      if (docSnap && docSnap.data) {
-        console.log("User document fetched:", docSnap.data());
-      } else {
-        throw new Error("docSnap is undefined or has no data");
-      }
-    })    
-    .catch(error => {
-      console.error("Error in signIn function:", error);
-    });
-
-}, false);
-
-
-
-async function refreshSpotifyToken(firebaseUID) {
-  // call your backend refreshToken function here
-  console.log("Sending refresh token request for UID:", firebaseUID);
-  const response = await fetch('https://us-central1-playlist-gpt.cloudfunctions.net/refreshToken', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ uid: firebaseUID }),
-  });
-  // After the fetch call
-  if (response.ok) {
-    const data = await response.json();
-    console.log("Received new access token:", data.accessToken);  // Log successful refresh
-    return data.accessToken;
-  } else {
-    console.error("Failed to refresh token, response status:", response.status);  // Log failed refresh
-    throw new Error('Failed to refresh token');
-  }
-}
-
-
-
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    // User is signed in, get the user document
-    const userDoc = doc(db, 'users', user.uid);
-    getDoc(userDoc)
-      .then(docSnap => {
-        // Populate the UI with the user's data
-        console.log("Authenticated:", user);
-        hideLoginUI();
-        populateUI(docSnap);
-      })
-      .catch(error => {
-        console.error("Error getting document:", error);
-      });
-  } else {
-    // User is signed out
-    showLoginUI();
-  }
-});
-
-function signOut() {
-  signOut(auth).then(() => {
-    showLoginUI();
-  }).catch((error) => {
-    console.error("Something bad happened");
-  });
-}
-
-function toggleDisplay(elementId, displayStyle) {
-  let element = document.getElementById(elementId);
-  if (element) {
-    element.style.display = displayStyle;
-  }
-}
-
-function hideLoginUI() {
-  toggleDisplay('create-section', "block");
-  toggleDisplay('connect-spotify', "none");
-  toggleDisplay('profile-info', "flex");
-}
-
-function showLoginUI() {
-  toggleDisplay('create-section', "none");
-  toggleDisplay('connect-spotify', "block");
-  toggleDisplay('profile-info', "none");
-}
-
-function showLoadingUI() {
-  toggleDisplay('loading', "block");
-  toggleDisplay('playlist-info', "none"); // Hide playlist info while loading
-  
-  // Reset any animation classes when loading
-  const inputSection = document.getElementById('create-section');
-  if (inputSection) {
-    inputSection.classList.remove('shifted');
-  }
-  
-  const outputSection = document.getElementById('playlist-info');
-  if (outputSection) {
-    outputSection.classList.remove('visible');
-  }
-}
-
-function hideLoadingUI() {
-  toggleDisplay('loading', "none");
-  toggleDisplay('playlist-info', "block"); // Show playlist info when loading is done
-  
-  // Apply animation classes with a slight delay
-  setTimeout(() => {
-    // Shift the input section
-    const inputSection = document.getElementById('create-section');
-    if (inputSection) {
-      inputSection.classList.add('shifted');
-    }
-    
-    // Fade in the output section
-    const outputSection = document.getElementById('playlist-info');
-    if (outputSection) {
-      outputSection.classList.add('visible');
-    }
-  }, 100); // Small delay to ensure DOM updates first
-}
-
-function populateUI(userDoc) {
-  const userData = userDoc.data();
-  console.log("Populating UI with user information:", userData);
-  document.getElementById("display-name").innerText = userData.display_name;
-
-  const avatarDiv = document.getElementById("avatar");
-  // Clear the avatar div
-  avatarDiv.innerHTML = '';
-  if (userData.images && userData.images.length > 0) {
-    const avatarImage = document.createElement('img');
-    avatarImage.src = userData.images[0].url;
-    avatarImage.className = 'avatar-image';
-    avatarDiv.appendChild(avatarImage);
-  }
-}
-
-
-// Chat GPT Reqeusts
-async function createPlaylistHandler(event) {
-  try {
-    console.log("Begin create playlist handler");
-    event.preventDefault();
-    showLoadingUI();
-
-    const user = auth.currentUser; // Get the current user directly from Firebase Auth
-    if (!user) {
-      console.error("No user is currently signed in");
-      hideLoadingUI();
-      alert("No user is currently signed in. Please log in and try again.");
-      return;
-    }
-
-    const firebaseUID = user.uid; // Get the UID from the user object
-
-    const userData = await getDoc(doc(db, 'users', firebaseUID));
-    if (!userData || !userData.data()) {
-      console.error("No user data found for firebaseUID:", firebaseUID);
-      hideLoadingUI();
-      alert("Unable to retrieve your user information. Please try again.");
-      return;
-    }
-    const { id: userID, accessToken: currentAccessToken } = userData.data();
-
-    const playlistDescription = document.getElementById("playlist-description-input").value;
-    if (!playlistDescription) {
-      console.error("No playlist description input found");
-      hideLoadingUI();
-      alert("Please enter a description for your playlist.");
-      return;
-    }
-
-    try {
-      const playlistData = await generatePlaylistWithAssistant(playlistDescription);
-      const songList = playlistData.songs;
-      const playlistTitle = playlistData.title;
-
-      console.log("Current Access Token for Spotify:", currentAccessToken);
-      console.log("User ID for Spotify:", userID);
-
-      const newPlaylist = await createPlaylist(currentAccessToken, userID, playlistTitle, playlistDescription, firebaseUID);
-      console.log("New playlist created:", newPlaylist);
-
-      if (newPlaylist.id) {
-        // Process songs in batches to avoid rate limiting
-        const batchSize = 20; // Process 20 songs at a time
-        const batchDelay = 3000; // 3 second delay between batches (increased from 2 seconds)
-        const allSongs = [...songList]; // Create a copy to work with
-        const allTrackUris = [];
-        
-        // Show progress information to user
-        const totalSongs = allSongs.length;
-        console.log(`Processing ${totalSongs} songs in batches of ${batchSize} to avoid Spotify rate limits`);
-        
-        // Function to process a batch of songs
-        const processBatch = async (startIdx) => {
-          // Ensure access token is refreshed before processing batch
-          // This helps prevent 401 errors for long-running operations
-          if (startIdx > 0 && startIdx % 80 === 0) {
-            console.log("Preemptively refreshing access token to avoid expiration...");
-            try {
-              const newToken = await refreshSpotifyToken(firebaseUID);
-              if (newToken) {
-                console.log("Access token refreshed successfully during batch processing.");
-                sessionStorage.setItem('spotifyAccessToken', newToken);
-                currentAccessToken = newToken;
-              }
-            } catch (refreshError) {
-              console.error("Failed to refresh token during batch processing:", refreshError);
-              // Continue with current token and hope for the best
-            }
-          }
-          
-          const endIdx = Math.min(startIdx + batchSize, allSongs.length);
-          const batchSongs = allSongs.slice(startIdx, endIdx);
-          
-          console.log(`Processing batch ${Math.ceil(startIdx/batchSize) + 1} of ${Math.ceil(allSongs.length/batchSize)}: songs ${startIdx+1}-${endIdx} of ${totalSongs}`);
-          
-          // Process songs in this batch
-          const batchTrackUris = (await Promise.all(
-            batchSongs.map(async song => {
-              try {
-                // Clean and validate search query
-                const artist = typeof song.artist === 'string' ? song.artist.trim() : '';
-                const songTitle = typeof song.song === 'string' ? song.song.trim() : '';
-                
-                if (!artist || !songTitle) {
-                  console.error(`Invalid song data - missing artist or song title:`, song);
-                  return null;
-                }
-                
-                // Limit search query length to avoid API errors
-                const searchQuery = `${artist} ${songTitle}`.substring(0, 100);
-                console.log(`Searching Spotify for: "${searchQuery}"`);
-                
-                const searchResult = await searchSpotify(currentAccessToken, searchQuery, firebaseUID);
-                if (searchResult?.uri) {
-                  console.log(`Success: ${artist} - ${songTitle}`);
-                  return searchResult.uri;
-                } else {
-                  console.log(`That song did not work: ${artist} - ${songTitle}`);
-                  return null;
-                }
-              } catch (error) {
-                console.error(`Error searching for song "${song.artist} - ${song.song}":`, error);
-                return null;
-              }
-            })
-          )).filter(Boolean);
-          
-          // Add these tracks to our accumulator array
-          allTrackUris.push(...batchTrackUris);
-          
-          // Update the playlist with this batch of songs
-          if (batchTrackUris.length > 0) {
-            try {
-              await addTracksToPlaylist(currentAccessToken, newPlaylist.id, batchTrackUris, firebaseUID);
-              console.log(`Added ${batchTrackUris.length} tracks from batch to playlist`);
-            } catch (error) {
-              console.error("Error adding tracks to playlist:", error);
-            }
-          }
-          
-          // If there are more songs to process, wait and then process the next batch
-          if (endIdx < allSongs.length) {
-            console.log(`Waiting ${batchDelay/1000} seconds before processing next batch to avoid rate limits...`);
-            await new Promise(resolve => setTimeout(resolve, batchDelay));
-            return processBatch(endIdx);
-          }
-          
-          return allTrackUris;
-        };
-        
-        // Start the batch processing from the first song
-        await processBatch(0);
-        
-        console.log(`Completed processing all ${totalSongs} songs. Successfully added ${allTrackUris.length} tracks to the playlist.`);
-        embedPlaylist(newPlaylist.id);
-        enableButtons(currentAccessToken, newPlaylist);
-        console.log("Playlist embedded");
-        hideLoadingUI();
-
-        // Take a screenshot after the playlist is created, with a delay
-        console.log("Scheduling screenshot in 3 seconds to capture the completed playlist");
-        if (APP_CONFIG.testing.enableScreenshots) {
-          setTimeout(() => {
-            takeAutomaticScreenshot();
-          }, 3000); // 3 second delay before taking screenshot
-        }
-      } else {
-        console.error("Failed to create a new playlist");
-        hideLoadingUI();
-        alert("Failed to create a new playlist. Please try again.");
-      }
-    } catch (error) {
-      console.error("Playlist generation error:", error);
-      hideLoadingUI();
-      alert(error.message || "An error occurred while generating your playlist. Please try again.");
-      return;
-    }
-  } catch (error) {
-    console.error('Error in createPlaylistHandler: ', error);
-    hideLoadingUI();
-    alert("An error occurred while creating your playlist. Please try again.");
-  }
-}
-
-async function generatePlaylistWithAssistant(description) {
-  console.log("Generating playlist with Firebase function for description:", description);
-  
-  try {
-    // Extract Firebase user info for logging
-    const user = auth.currentUser;
-    const firebaseUID = user ? user.uid : null;
-    const userEmail = user ? user.email : 'anonymous';
-    console.log(`Request from user: ${userEmail} (${firebaseUID || 'anonymous'})`);
-    
-    // Check if the description is too long and truncate if necessary
-    const maxDescriptionLength = 10000;
-    const truncatedDescription = description.length > maxDescriptionLength 
-      ? `${description.substring(0, maxDescriptionLength)}... (truncated)` 
-      : description;
-    
-    if (description.length > maxDescriptionLength) {
-      console.log(`Description truncated from ${description.length} to ${maxDescriptionLength} characters`);
-    }
-    
-    // Special case handling for direct song lists
-    const isSongList = description.includes("Make a playlist with these songs:") || 
-                       description.split('\n').length > 10;
-    
-    if (isSongList) {
-      // Process song list client-side
-      console.log("Detected a song list. Processing locally...");
-      
-      // Default title if none is specified
-      let playlistTitle = "Custom Song Collection";
-      const lines = description.split('\n');
-      
-      // Check for custom title patterns
-      const titlePatterns = [
-        /Make a playlist with these songs called ['"](.*?)['"][:]/i,
-        /Make a playlist with these songs called (.*?)[:]/i,
-        /called ['"](.*?)['"][:]/i,
-        /called ['"](.*?)['"]/i,
-        /called (.*?)[:]/i,
-        /Make a (.*?) playlist with these songs/i,
-        /Create a (.*?) playlist/i,
-        /Title: ['"](.*?)['"]/im,
-        /Title: (.*?)$/im,
-        /Playlist[: ]+(.*?)$/im
-      ];
-      
-      // Try to extract a custom title using the patterns
-      let foundCustomTitle = false;
-      for (const pattern of titlePatterns) {
-        const match = description.match(pattern);
-        if (match?.length > 1) {
-          // Clean up the title by removing any surrounding quotes
-          playlistTitle = match[1].trim().replace(/^['"]|['"]$/g, '');
-          console.log(`Found custom playlist title: "${playlistTitle}"`);
-          foundCustomTitle = true;
-          break;
-        }
-      }
-      
-      // Parse the song list directly
-      const songLines = description
-        .replace(/Make a playlist with these songs.*?:/i, "")
-        .replace(/Make a.*?playlist with these songs/i, "")
-        .replace(/Create a.*?playlist/i, "")
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0 && line.includes('-'));
-      
-      console.log(`Found ${songLines.length} song entries in the list`);
-
-      // Create a structured playlist with all songs from the list
-      const songs = songLines.map(line => {
-        const parts = line.split('-').map(part => part.trim());
-        return {
-          artist: parts[0] || "Unknown Artist",
-          song: parts[1] || parts[0] || "Unknown Song"
-        };
-      });
-      
-      console.log(`PLAYLIST RESULT - MANUAL PARSING: Title: "${playlistTitle}", Songs: ${songs.length}, Status: Success`);
-      
-      return {
-        title: playlistTitle,
-        songs: songs
-      };
-    }
-    
-    // For non-song-list descriptions, use the Firebase function
-    console.log("Calling Firebase function to generate playlist...");
-    
-    const response = await fetch('https://us-central1-playlist-gpt.cloudfunctions.net/generatePlaylist', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
-        description: truncatedDescription,
-        uid: firebaseUID
-      })
+    // Log detailed response for debugging
+    console.log(`Response from ${url}:`, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries([...response.headers])
     });
     
+    // Handle 304 Not Modified
+    if (response.status === 304) {
+      console.log("Resource not modified (304), using cached data");
+      // Try to parse JSON anyway, but if it fails, return an empty object as we're using cached data
+      try {
+        return await response.json();
+      } catch (e) {
+        console.log("Cannot parse 304 response body, returning empty object");
+        return {};
+      }
+    }
+    
+    // Handle other error statuses
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Firebase function error:", errorData);
-      throw new Error(errorData.error || "Error generating playlist. Please try again.");
+      const errorText = await response.text();
+      console.error(`API error ${response.status}: ${errorText}`);
+      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
     }
     
-    const playlistData = await response.json();
-    
-    // Validate the response data
-    if (!playlistData.title || !Array.isArray(playlistData.songs) || playlistData.songs.length === 0) {
-      console.error("Invalid playlist data received:", playlistData);
-      throw new Error("Received invalid playlist data. Please try again.");
-    }
-    
-    console.log(`PLAYLIST RESULT - FROM FIREBASE: Title: "${playlistData.title}", Songs: ${playlistData.songs.length}, Status: Success`);
-    
-    return playlistData;
-    
+    // Parse JSON for successful responses
+    return await response.json();
   } catch (error) {
-    console.error("Error generating playlist with Firebase function:", error);
-    throw new Error(error.message || "Failed to generate playlist. Please try again later.");
+    console.error(`Error fetching from ${url}:`, error);
+    throw error;
   }
 }
 
-// Move directly to the spotifyAPI function, removing the checkRunStatus function
+// Modify the spotifyAPI function to handle 304 responses
 async function spotifyAPI(token, url, method = "GET", body = {}, firebaseUID) {
   const options = {
     method,
@@ -1867,13 +1347,36 @@ async function spotifyAPI(token, url, method = "GET", body = {}, firebaseUID) {
   let result;
   try {
     result = await fetch(url, options);
+    
+    // Log response details
+    console.log(`Spotify API response from ${url}:`, {
+      status: result.status,
+      statusText: result.statusText
+    });
+    
+    // Handle 304 Not Modified
+    if (result.status === 304) {
+      console.log("Spotify resource not modified (304), using cached data");
+      // For GET requests, we can proceed with empty data
+      // For other methods, we'll treat 304 as success
+      if (method === "GET") {
+        try {
+          return await result.json();
+        } catch (e) {
+          console.log("Cannot parse 304 response body, returning empty object");
+          return {};
+        }
+      } else {
+        return { success: true, status: 304, message: "Not Modified" };
+      }
+    }
   } catch (error) {
     console.error(`Fetch failed: ${error}`);
     throw new Error(error);
   }
 
-   // Check for Unauthorized (401) response
-   if (result.status === 401) {
+  // Check for Unauthorized (401) response
+  if (result.status === 401) {
     console.log("Access token expired, attempting to refresh...");
     const newToken = await refreshSpotifyToken(firebaseUID); // Refresh the token
     if (newToken) {
@@ -1882,7 +1385,6 @@ async function spotifyAPI(token, url, method = "GET", body = {}, firebaseUID) {
       result = await fetch(url, options); // Retry the request with the new token
     }
   }
-
 
   if (!result.ok) {
     throw new Error(`Spotify API request failed with status ${result.status}`);
@@ -1897,7 +1399,6 @@ async function spotifyAPI(token, url, method = "GET", body = {}, firebaseUID) {
   }
   return json;
 }
-
 
 // And then call spotifyAPI like this
 async function createPlaylist(token, userID, playlistName, description, firebaseUID) {
