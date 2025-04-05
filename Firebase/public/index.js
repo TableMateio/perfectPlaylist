@@ -133,8 +133,8 @@ const BACKGROUND_PREF_KEY = 'perfectPlaylist_backgroundPreference';
 
 // Function to set a random background
 async function setRandomBackground() {
-  // Get user preference or default to video
-  const preference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'video';
+  // Get user preference or default to image
+  const preference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'image';
   
   if (preference === 'image') {
     await setImageBackground();
@@ -844,8 +844,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // To re-enable, remove the next line
   controlsContainer.style.display = 'none';
   
-  // Get current preference or default to video
-  const currentPreference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'video';
+  // Get current preference or default to image
+  const currentPreference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'image';
   
   // Create toggle switch
   controlsContainer.innerHTML = `
