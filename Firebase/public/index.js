@@ -2489,76 +2489,122 @@ function unfollowPlaylist(playlistId) {
   });
 }
 
-// Settings panel functionality
-document.addEventListener('DOMContentLoaded', () => {
-  const BRANDING_IMAGE_KEY = 'perfectPlaylist_brandingImage';
-  const settingsButton = document.getElementById('settings-button');
-  const settingsPanel = document.getElementById('settings-panel');
-  const backgroundTypeToggle = document.getElementById('background-type-toggle');
-  const brandingOptions = document.querySelectorAll('input[name="branding-option"]');
+// Settings panel functionality - run immediately instead of waiting for DOMContentLoaded
+(() => {
+  console.log('Settings panel code initializing immediately...');
   
-  // Initialize background toggle with the current preference
-  const currentBackgroundPreference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'image';
-  backgroundTypeToggle.checked = currentBackgroundPreference === 'image';
-  
-  // Initialize branding image radio with the current preference or default
-  const currentBrandingImage = localStorage.getItem(BRANDING_IMAGE_KEY) || 'logotype.png';
-  brandingOptions.forEach(option => {
-    if (option.value === currentBrandingImage) {
-      option.checked = true;
-    }
-  });
-  
-  // Toggle settings panel visibility
-  settingsButton.addEventListener('click', () => {
-    settingsButton.classList.toggle('active');
-    settingsPanel.classList.toggle('visible');
-  });
-  
-  // Close settings panel when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!settingsPanel.contains(e.target) && e.target !== settingsButton) {
-      settingsPanel.classList.remove('visible');
-      settingsButton.classList.remove('active');
-    }
-  });
-  
-  // Handle background type toggle
-  backgroundTypeToggle.addEventListener('change', (e) => {
-    const newPreference = e.target.checked ? 'image' : 'video';
-    localStorage.setItem(BACKGROUND_PREF_KEY, newPreference);
+  // Give DOM a moment to ensure everything is loaded
+  setTimeout(() => {
+    const BRANDING_IMAGE_KEY = 'perfectPlaylist_brandingImage';
+    const settingsButton = document.getElementById('settings-button');
+    const settingsPanel = document.getElementById('settings-panel');
     
-    // Clear any existing interval
-    if (window.currentBackgroundInterval) {
-      clearInterval(window.currentBackgroundInterval);
-      window.currentBackgroundInterval = null;
-    }
-    
-    // Apply the new background
-    setRandomBackground().catch(err => {
-      console.error("Error changing background:", err);
+    console.log('Settings elements:', { 
+      settingsButton: settingsButton ? 'Found' : 'Not found', 
+      settingsPanel: settingsPanel ? 'Found' : 'Not found' 
     });
-  });
-  
-  // Handle branding image selection
-  brandingOptions.forEach(option => {
-    option.addEventListener('change', (e) => {
-      if (e.target.checked) {
-        const selectedImage = e.target.value;
-        localStorage.setItem(BRANDING_IMAGE_KEY, selectedImage);
-        
-        // Update the image on the page
-        const brandingImage = document.querySelector('img[alt="Perfect Playlist"]');
-        if (brandingImage) {
-          brandingImage.src = `branding/${selectedImage}`;
-        }
+    
+    if (!settingsButton || !settingsPanel) {
+      console.error('Settings button or panel not found in the DOM');
+      return;
+    }
+    
+    const backgroundTypeToggle = document.getElementById('background-type-toggle');
+    const brandingOptions = document.querySelectorAll('input[name="branding-option"]');
+    
+    // Initialize background toggle with the current preference
+    const currentBackgroundPreference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'image';
+    backgroundTypeToggle.checked = currentBackgroundPreference === 'image';
+    
+    // Initialize branding image radio with the current preference or default
+    const currentBrandingImage = localStorage.getItem(BRANDING_IMAGE_KEY) || 'logotype.png';
+    brandingOptions.forEach(option => {
+      if (option.value === currentBrandingImage) {
+        option.checked = true;
       }
     });
-  });
-  
-  // Set initial branding image
-  const brandingImage = document.querySelector('img[alt="Perfect Playlist"]');
-  if (brandingImage) {
-    brandingImage.src = `branding/${currentBrandingImage}`;
-  }
-});
+    
+    // Toggle settings panel visibility
+    settingsButton.addEventListener('click', (e) => {
+      console.log('Settings button clicked');
+      // Stop event propagation to prevent document click from closing the panel immediately
+      e.stopPropagation();
+      
+      settingsButton.classList.toggle('active');
+      settingsPanel.classList.toggle('visible');
+      
+      console.log('Settings panel visibility:', { 
+        buttonActive: settingsButton.classList.contains('active'),
+        panelVisible: settingsPanel.classList.contains('visible')
+      });
+    });
+    
+    // Close settings panel when clicking outside
+    document.addEventListener('click', (e) => {
+      console.log('Document clicked, checking if should close panel');
+      
+      if (settingsPanel.classList.contains('visible') && 
+          !settingsPanel.contains(e.target) && 
+          e.target !== settingsButton) {
+        console.log('Clicked outside settings panel, closing it');
+        settingsPanel.classList.remove('visible');
+        settingsButton.classList.remove('active');
+      }
+    });
+    
+    // Prevent panel from closing when clicking inside it
+    settingsPanel.addEventListener('click', (e) => {
+      console.log('Settings panel clicked');
+      e.stopPropagation();
+    });
+    
+    // Handle background type toggle
+    backgroundTypeToggle.addEventListener('change', (e) => {
+      console.log('Background type toggle changed:', e.target.checked);
+      const newPreference = e.target.checked ? 'image' : 'video';
+      localStorage.setItem(BACKGROUND_PREF_KEY, newPreference);
+      
+      // Clear any existing interval
+      if (window.currentBackgroundInterval) {
+        clearInterval(window.currentBackgroundInterval);
+        window.currentBackgroundInterval = null;
+      }
+      
+      // Apply the new background
+      setRandomBackground().catch(err => {
+        console.error("Error changing background:", err);
+      });
+    });
+    
+    // Handle branding image selection
+    brandingOptions.forEach(option => {
+      option.addEventListener('change', (e) => {
+        console.log('Branding option changed:', e.target.value);
+        if (e.target.checked) {
+          const selectedImage = e.target.value;
+          localStorage.setItem(BRANDING_IMAGE_KEY, selectedImage);
+          
+          // Update the image on the page
+          const brandingImage = document.querySelector('img[alt="Perfect Playlist"]');
+          if (brandingImage) {
+            console.log('Updating branding image to:', selectedImage);
+            brandingImage.src = `branding/${selectedImage}`;
+          } else {
+            console.error('Branding image element not found');
+          }
+        }
+      });
+    });
+    
+    // Set initial branding image
+    const brandingImage = document.querySelector('img[alt="Perfect Playlist"]');
+    if (brandingImage) {
+      console.log('Setting initial branding image to:', currentBrandingImage);
+      brandingImage.src = `branding/${currentBrandingImage}`;
+    } else {
+      console.error('Branding image element not found for initial setup');
+    }
+    
+    console.log('Settings panel initialization complete');
+  }, 300); // Give more time to ensure DOM is ready
+})();
