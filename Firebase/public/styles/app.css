@@ -248,7 +248,7 @@ p.text-xl {
 
 /* Restore the playlist-input styles */
 .playlist-input {
-  background-color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.5);
   border-radius: 0.5rem;
   border: none;
   padding: 1rem;
@@ -741,4 +741,171 @@ p.text-xl {
   object-fit: cover;
   opacity: 0;
   transition: opacity 0.5s ease-in-out;
+}
+
+/* Settings Button and Panel */
+.settings-toggle-button {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1000;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.settings-toggle-button:hover {
+  background-color: rgba(0, 0, 0, 0.7);
+  transform: scale(1.1);
+}
+
+.settings-toggle-button.active {
+  background-color: #1DB954;
+}
+
+.settings-panel {
+  position: fixed;
+  bottom: 70px;
+  left: 20px;
+  width: 250px;
+  background-color: rgba(20, 20, 20, 0.85);
+  border-radius: 10px;
+  padding: 15px;
+  color: white;
+  z-index: 999;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+  transform: translateY(20px);
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.settings-panel.visible {
+  transform: translateY(0);
+  opacity: 1;
+  visibility: visible;
+}
+
+.settings-panel h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 16px;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 8px;
+}
+
+.settings-section {
+  margin-bottom: 15px;
+}
+
+.settings-label {
+  font-size: 14px;
+  margin-bottom: 8px;
+  opacity: 0.8;
+}
+
+/* Toggle Switch */
+.toggle-container {
+  display: flex;
+  align-items: center;
+}
+
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 130px;
+  height: 28px;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #144614;
+  transition: .4s;
+  border-radius: 28px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+.toggle input:checked + .toggle-slider {
+  background-color: #7d4cb0;
+}
+
+.toggle input:checked + .toggle-slider:before {
+  transform: translateX(102px);
+}
+
+.toggle-labels {
+  position: absolute;
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 10px;
+  box-sizing: border-box;
+  font-size: 12px;
+  line-height: 28px;
+  font-weight: 600;
+  z-index: 1;
+}
+
+.toggle-label-left, .toggle-label-right {
+  color: white;
+}
+
+/* Image Selection */
+.image-selection {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.image-option {
+  display: flex;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  padding: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.image-option:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.image-option input {
+  margin-right: 6px;
+}
+
+.image-option input:checked + span {
+  color: #1DB954;
 } 
