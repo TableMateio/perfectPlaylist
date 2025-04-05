@@ -2741,52 +2741,51 @@ function unfollowPlaylist(playlistId) {
     function applyFontStyle(fontStyle) {
       console.log('Applying font style:', fontStyle);
       
-      // Reset all font classes first
-      document.body.classList.remove('font-outfit', 'font-lexend', 'font-quicksand', 'font-poppins');
+      // Reset body font to default
+      document.body.classList.remove(
+        'font-outfit', 
+        'font-lexend', 
+        'font-quicksand', 
+        'font-poppins',
+        'font-playfair',
+        'font-dm-serif',
+        'font-cormorant',
+        'font-abril',
+        'font-rozha'
+      );
       
-      // Apply the selected font style to body
-      if (fontStyle !== 'default') {
-        document.body.classList.add(`font-${fontStyle}`);
-      }
-      
-      // Apply specific styles to subtitle and text input
+      // Apply Abril font to subtitle regardless of what was selected
       const subtitle = document.querySelector('p.text-xl');
-      
-      if (subtitle && fontStyle !== 'abril') { // Don't change if we're already using Abril as default
-        console.log('Updating subtitle font to:', fontStyle);
-        // Clear inline styles first
-        subtitle.style.fontFamily = '';
-        // Remove any existing font classes
-        subtitle.classList.remove('font-outfit', 'font-lexend', 'font-quicksand', 'font-poppins', 
-          'font-playfair', 'font-dm-serif', 'font-cormorant', 'font-abril', 'font-rozha');
-        // Set the font directly to ensure it overrides any CSS
-        subtitle.style.fontFamily = getFontFamilyValue(fontStyle);
+      if (subtitle) {
+        console.log('Setting subtitle font to Abril');
+        subtitle.style.fontFamily = 'Abril Fatface, cursive';
       }
     }
     
     // Function to apply input font style to textarea and buttons
     function applyInputFontStyle(inputFont) {
-      console.log('Applying input font style:', inputFont);
+      console.log('Applying input font style: default (overriding selection)');
       
-      // Remove all input font classes from relevant elements
+      // Reset all input elements to default font
       document.querySelectorAll('.playlist-textarea, .btn').forEach(el => {
         el.classList.remove(
-          'input-font-default', 
           'input-font-outfit', 
           'input-font-lexend', 
           'input-font-quicksand', 
           'input-font-poppins'
         );
         
-        // Add the selected font class
-        el.classList.add(`input-font-${inputFont}`);
+        // Add the default font class
+        el.classList.add('input-font-default');
+        
+        // Set explicit font-family to override any inline styles
+        el.style.fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
       });
       
-      // Also update the placeholder text
+      // Also update the textarea specifically
       const textarea = document.querySelector('.playlist-textarea');
       if (textarea) {
-        // Set inline style for the textarea to override the CSS
-        textarea.style.fontFamily = getInputFontFamilyValue(inputFont);
+        textarea.style.fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
       }
     }
     
