@@ -117,9 +117,9 @@
     <div class="flex flex-col items-center justify-center h-full px-4 py-4">
       <!-- User Profile (Hidden initially) -->
       <div id="profile-info" class="absolute top-4 right-4 flex items-center gap-3" style="display: none;">
-        <div class="text-right">
-          <div class="text-sm text-gray-300">Signed into Spotify as</div>
-          <div id="display-name" class="text-white font-medium"></div>
+        <div class="text-right user-info">
+          <div class="text-sm">Signed into Spotify as</div>
+          <div id="display-name" class="font-medium"></div>
         </div>
         <div id="avatar" class="avatar"></div>
       </div>
@@ -188,143 +188,247 @@
   
   <!-- Settings Panel -->
   <div id="settings-panel" class="settings-panel">
-    <h3>Background Settings</h3>
+    <h3>Settings</h3>
     
-    <div class="settings-section">
-      <p class="settings-label">Background Type:</p>
-      <div class="toggle-container">
-        <label class="toggle">
-          <input type="checkbox" id="background-type-toggle">
-          <span class="toggle-slider"></span>
-          <span class="toggle-labels">
-            <span class="toggle-label-left">Video</span>
-            <span class="toggle-label-right">Images</span>
-          </span>
-        </label>
+    <div class="settings-accordion">
+      <div class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-section="background">
+          Background Settings
+          <span class="accordion-icon">+</span>
+        </button>
+      </div>
+      <div class="accordion-content" id="background-section">
+        <div class="settings-section">
+          <p class="settings-label">Background Type:</p>
+          <div class="toggle-container">
+            <label class="toggle">
+              <input type="checkbox" id="background-type-toggle">
+              <span class="toggle-slider"></span>
+              <span class="toggle-labels">
+                <span class="toggle-label-left">Video</span>
+                <span class="toggle-label-right">Images</span>
+              </span>
+            </label>
+          </div>
+        </div>
       </div>
     </div>
     
-    <div class="settings-section">
-      <p class="settings-label">Brand Image:</p>
-      <div class="image-selection">
-        <label class="image-option">
-          <input type="radio" name="branding-option" value="logotype.png" checked>
-          <span>Default</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="branding-option" value="logotypeColor.png">
-          <span>Color</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="branding-option" value="logoAndTypeGreen.png">
-          <span>Green</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="branding-option" value="logoAndTypeColor.png">
-          <span>Logo+Color</span>
-        </label>
+    <div class="settings-accordion">
+      <div class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-section="branding">
+          Branding Settings
+          <span class="accordion-icon">+</span>
+        </button>
       </div>
-    </div>
-    
-    <div class="settings-section">
-      <p class="settings-label">Logo Style:</p>
-      <div class="image-selection">
-        <label class="image-option">
-          <input type="radio" name="logo-option" value="logo.svg" checked>
-          <span>SVG</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="logo-option" value="logo.png">
-          <span>Standard</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="logo-option" value="logoFilled.png">
-          <span>Filled</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="logo-option" value="logoNoShadow.png">
-          <span>No Shadow</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="logo-option" value="logoBw.png">
-          <span>B&W</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="logo-option" value="logoBwAndColor.png">
-          <span>B&W+Color</span>
-        </label>
+      <div class="accordion-content" id="branding-section">
+        <div class="settings-section">
+          <p class="settings-label">Brand Image:</p>
+          <div class="image-selection">
+            <label class="image-option">
+              <input type="radio" name="branding-option" value="logotype.png" checked>
+              <span>Default</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="branding-option" value="logotypeColor.png">
+              <span>Color</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="branding-option" value="logoAndTypeGreen.png">
+              <span>Green</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="branding-option" value="logoAndTypeColor.png">
+              <span>Logo+Color</span>
+            </label>
+          </div>
+        </div>
+        
+        <div class="settings-section">
+          <p class="settings-label">Logo Style:</p>
+          <div class="image-selection">
+            <label class="image-option">
+              <input type="radio" name="logo-option" value="logo.svg" checked>
+              <span>SVG</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="logo-option" value="logo.png">
+              <span>Standard</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="logo-option" value="logoFilled.png">
+              <span>Filled</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="logo-option" value="logoNoShadow.png">
+              <span>No Shadow</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="logo-option" value="logoBw.png">
+              <span>B&W</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="logo-option" value="logoBwAndColor.png">
+              <span>B&W+Color</span>
+            </label>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="settings-section">
-      <p class="settings-label">Font Style:</p>
-      <div class="image-selection">
-        <label class="image-option">
-          <input type="radio" name="font-option" value="default" checked>
-          <span>Default</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="font-option" value="outfit">
-          <span class="font-outfit">Outfit</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="font-option" value="lexend">
-          <span class="font-lexend">Lexend</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="font-option" value="quicksand">
-          <span class="font-quicksand">Quicksand</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="font-option" value="poppins">
-          <span class="font-poppins">Poppins</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="font-option" value="playfair">
-          <span class="font-playfair">Playfair</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="font-option" value="dm-serif">
-          <span class="font-dm-serif">DM Serif</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="font-option" value="cormorant">
-          <span class="font-cormorant">Cormorant</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="font-option" value="abril">
-          <span class="font-abril">Abril</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="font-option" value="rozha">
-          <span class="font-rozha">Rozha</span>
-        </label>
+    <div class="settings-accordion">
+      <div class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-section="font">
+          General Font Settings
+          <span class="accordion-icon">+</span>
+        </button>
+      </div>
+      <div class="accordion-content" id="font-section">
+        <div class="settings-section">
+          <p class="settings-label">Font Style:</p>
+          <div class="image-selection">
+            <label class="image-option">
+              <input type="radio" name="font-option" value="default" checked>
+              <span>Default</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="font-option" value="outfit">
+              <span class="font-outfit">Outfit</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="font-option" value="lexend">
+              <span class="font-lexend">Lexend</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="font-option" value="quicksand">
+              <span class="font-quicksand">Quicksand</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="font-option" value="poppins">
+              <span class="font-poppins">Poppins</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="font-option" value="playfair">
+              <span class="font-playfair">Playfair</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="font-option" value="dm-serif">
+              <span class="font-dm-serif">DM Serif</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="font-option" value="cormorant">
+              <span class="font-cormorant">Cormorant</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="font-option" value="abril">
+              <span class="font-abril">Abril</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="font-option" value="rozha">
+              <span class="font-rozha">Rozha</span>
+            </label>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="settings-section">
-      <p class="settings-label">Input Font:</p>
-      <div class="image-selection">
-        <label class="image-option">
-          <input type="radio" name="input-font-option" value="default" checked>
-          <span>Default</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="input-font-option" value="outfit">
-          <span class="font-outfit">Outfit</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="input-font-option" value="lexend">
-          <span class="font-lexend">Lexend</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="input-font-option" value="quicksand">
-          <span class="font-quicksand">Quicksand</span>
-        </label>
-        <label class="image-option">
-          <input type="radio" name="input-font-option" value="poppins">
-          <span class="font-poppins">Poppins</span>
-        </label>
+    <div class="settings-accordion">
+      <div class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-section="input-font">
+          Input Font Settings
+          <span class="accordion-icon">+</span>
+        </button>
+      </div>
+      <div class="accordion-content" id="input-font-section">
+        <div class="settings-section">
+          <p class="settings-label">Input Font:</p>
+          <div class="image-selection">
+            <label class="image-option">
+              <input type="radio" name="input-font-option" value="default" checked>
+              <span>Default</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="input-font-option" value="outfit">
+              <span class="font-outfit">Outfit</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="input-font-option" value="lexend">
+              <span class="font-lexend">Lexend</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="input-font-option" value="quicksand">
+              <span class="font-quicksand">Quicksand</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="input-font-option" value="poppins">
+              <span class="font-poppins">Poppins</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-accordion">
+      <div class="accordion-header">
+        <button class="accordion-button expanded" type="button" data-section="subtitle-font">
+          Subtitle Font Settings
+          <span class="accordion-icon">-</span>
+        </button>
+      </div>
+      <div class="accordion-content show" id="subtitle-font-section">
+        <div class="settings-section">
+          <p class="settings-label">Subtitle Font:</p>
+          <div class="image-selection">
+            <label class="image-option">
+              <input type="radio" name="subtitle-font-option" value="default" checked>
+              <span>Default</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="subtitle-font-option" value="lora">
+              <span class="font-lora">Lora</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="subtitle-font-option" value="crimson">
+              <span class="font-crimson">Crimson</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="subtitle-font-option" value="merriweather">
+              <span class="font-merriweather">Merriweather</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="subtitle-font-option" value="fraunces">
+              <span class="font-fraunces">Fraunces</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="subtitle-font-option" value="spectral">
+              <span class="font-spectral">Spectral</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="subtitle-font-option" value="playfair">
+              <span class="font-playfair">Playfair</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="subtitle-font-option" value="cormorant">
+              <span class="font-cormorant">Cormorant</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="subtitle-font-option" value="dm-serif">
+              <span class="font-dm-serif">DM Serif</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="subtitle-font-option" value="abril">
+              <span class="font-abril">Abril</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="subtitle-font-option" value="outfit">
+              <span class="font-outfit">Outfit</span>
+            </label>
+            <label class="image-option">
+              <input type="radio" name="subtitle-font-option" value="rozha">
+              <span class="font-rozha">Rozha</span>
+            </label>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -341,9 +445,52 @@
   <!-- Debug Text -->
   <div id="debug-text" style="display: none;"></div>
   
-  <!-- Scripts -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <!-- External Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <script type="module" src="index.js"></script>
+  
+  <!-- Simple inline script to fix settings button functionality -->
+  <script>
+    // This script runs after all other scripts have loaded
+    window.addEventListener('load', function() {
+      // Wait a bit to ensure everything else has initialized
+      setTimeout(function() {
+        console.log('Fixing settings button functionality');
+        
+        // Get elements
+        const settingsButton = document.getElementById('settings-button');
+        const settingsPanel = document.getElementById('settings-panel');
+        
+        if (settingsButton && settingsPanel) {
+          // Remove any existing click listeners by cloning the button
+          const newButton = settingsButton.cloneNode(true);
+          settingsButton.parentNode.replaceChild(newButton, settingsButton);
+          
+          // Add our clean click handler
+          newButton.addEventListener('click', function(e) {
+            e.stopPropagation();
+            
+            // Check current visibility state
+            const isVisible = settingsPanel.classList.contains('visible');
+            
+            // Apply the opposite state
+            if (isVisible) {
+              settingsPanel.classList.remove('visible');
+              this.classList.remove('active');
+              console.log('Settings panel closed');
+            } else {
+              settingsPanel.classList.add('visible');
+              this.classList.add('active');
+              console.log('Settings panel opened');
+            }
+          });
+          
+          console.log('Settings button functionality fixed');
+        } else {
+          console.error('Could not find settings button or panel');
+        }
+      }, 500); // Wait 500ms after load
+    });
+  </script>
 </body>
 </html>

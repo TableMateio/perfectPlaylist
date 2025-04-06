@@ -1,6 +1,7 @@
 /* Application-specific styles */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Lexend:wght@300;400;500;600&family=Quicksand:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Cormorant:wght@300;400;500;600&family=Abril+Fatface&family=Rozha+One&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&family=Lora:wght@400;500;600&family=Crimson+Pro:wght@400;500;600&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=Spectral:wght@300;400;500&display=swap');
 
 html, body {
   height: 100%;
@@ -22,6 +23,11 @@ html, body {
   --font-cormorant: 'Cormorant', serif;
   --font-abril: 'Abril Fatface', cursive;
   --font-rozha: 'Rozha One', serif;
+  --font-merriweather: 'Merriweather', serif;
+  --font-lora: 'Lora', serif;
+  --font-crimson: 'Crimson Pro', serif;
+  --font-fraunces: 'Fraunces', serif;
+  --font-spectral: 'Spectral', serif;
 }
 
 body {
@@ -43,14 +49,36 @@ body {
 .font-cormorant { font-family: var(--font-cormorant); }
 .font-abril { font-family: var(--font-abril); }
 .font-rozha { font-family: var(--font-rozha); }
+.font-merriweather { font-family: var(--font-merriweather); }
+.font-lora { font-family: var(--font-lora); }
+.font-crimson { font-family: var(--font-crimson); }
+.font-fraunces { font-family: var(--font-fraunces); }
+.font-spectral { font-family: var(--font-spectral); }
 
-/* Subtitle text - using Abril font by default */
+/* Subtitle text - using system font by default */
 p.text-xl {
   color: #144614;
-  font-family: var(--font-abril);
+  font-family: var(--font-default);
   font-weight: 500;
   letter-spacing: 0.02em;
 }
+
+/* Subtitle font classes */
+.subtitle-font-default { font-family: var(--font-default) !important; }
+.subtitle-font-outfit { font-family: var(--font-outfit) !important; }
+.subtitle-font-lexend { font-family: var(--font-lexend) !important; }
+.subtitle-font-quicksand { font-family: var(--font-quicksand) !important; }
+.subtitle-font-poppins { font-family: var(--font-poppins) !important; }
+.subtitle-font-playfair { font-family: var(--font-playfair) !important; }
+.subtitle-font-dm-serif { font-family: var(--font-dm-serif) !important; }
+.subtitle-font-cormorant { font-family: var(--font-cormorant) !important; }
+.subtitle-font-abril { font-family: var(--font-abril) !important; }
+.subtitle-font-rozha { font-family: var(--font-rozha) !important; }
+.subtitle-font-merriweather { font-family: var(--font-merriweather) !important; }
+.subtitle-font-lora { font-family: var(--font-lora) !important; }
+.subtitle-font-crimson { font-family: var(--font-crimson) !important; }
+.subtitle-font-fraunces { font-family: var(--font-fraunces) !important; }
+.subtitle-font-spectral { font-family: var(--font-spectral) !important; }
 
 .bg-app {
   position: fixed;
@@ -112,9 +140,20 @@ p.text-xl {
   justify-content: center;
   min-height: 85vh;
   width: 520px;
-  max-width: 1200px;
+  max-width: 100%;
   position: relative;
   padding: 1rem 0;
+  transition: width 0.5s ease-in-out;
+}
+
+/* When the playlist is visible, expand the container */
+.flex.flex-col.items-center.text-center.w-full:has(#playlist-info[style*="display: block"]) {
+  width: 820px;
+}
+
+/* Fallback for browsers that don't support :has */
+body.playlist-visible .flex.flex-col.items-center.text-center.w-full {
+  width: 820px;
 }
 
 /* Restore logo styles */
@@ -837,7 +876,7 @@ h1.text-5xl {
   position: fixed;
   bottom: 60px; /* Adjusted for smaller button */
   left: 20px;
-  width: 250px;
+  width: 280px;
   background-color: rgba(20, 20, 20, 0.9); /* More opaque for better visibility */
   border-radius: 10px;
   padding: 15px;
@@ -849,6 +888,8 @@ h1.text-5xl {
   visibility: hidden;
   transition: all 0.3s ease;
   pointer-events: auto; /* Ensure clicks are detected */
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .settings-panel.visible {
@@ -866,8 +907,63 @@ h1.text-5xl {
   padding-bottom: 8px;
 }
 
+/* Accordion Styles */
+.settings-accordion {
+  margin-bottom: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.accordion-header {
+  width: 100%;
+}
+
+.accordion-button {
+  width: 100%;
+  background-color: rgba(40, 40, 40, 0.8);
+  color: white;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
+}
+
+.accordion-button:hover {
+  background-color: rgba(60, 60, 60, 0.8);
+}
+
+.accordion-button.expanded {
+  background-color: rgba(29, 185, 84, 0.2);
+}
+
+.accordion-icon {
+  font-size: 16px;
+  font-weight: bold;
+  transition: transform 0.2s;
+}
+
+.accordion-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+  background-color: rgba(30, 30, 30, 0.6);
+}
+
+.accordion-content.show {
+  max-height: 1000px;
+}
+
 .settings-section {
-  margin-bottom: 15px;
+  margin: 0;
+  padding: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .settings-label {
@@ -987,9 +1083,11 @@ img[alt="Perfect Playlist"] {
 
 /* Profile area text colors */
 .user-info {
-  color: #333; /* Changed from white to black */
+  color: black; /* Changed to black */
+  font-family: var(--font-default) !important; /* Using default sans-serif font */
 }
 
 .user-info span {
-  color: #555; /* Changed from gray to darker gray */
+  color: #555; /* Darker gray */
+  font-family: var(--font-default) !important; /* Using default sans-serif font */
 } 

@@ -86,6 +86,27 @@ document.addEventListener('DOMContentLoaded', () => {
       e.stopPropagation(); // Prevent event bubbling
     });
     
+    // Add keydown event handler for Enter key submission
+    textarea.addEventListener('keydown', function(e) {
+      // If Enter key is pressed without Shift key
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault(); // Prevent default behavior (adding a newline)
+        console.log('Enter key pressed without Shift, submitting form');
+        
+        // Get the form and submit button
+        const form = document.getElementById('playlist-form');
+        const submitButton = document.getElementById('create-playlist-button');
+        
+        if (form && submitButton) {
+          // Trigger a click on the submit button to create a playlist
+          submitButton.click();
+        } else {
+          console.error('Form or submit button not found');
+        }
+      }
+      // If Enter key is pressed with Shift key, allow the default behavior (adding a newline)
+    });
+    
     // Force the textarea to be in front
     textarea.style.position = 'relative';
     textarea.style.zIndex = '1000';
@@ -102,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Log that setup is complete
-    console.log('Textarea focus helpers set up');
+    console.log('Textarea focus and keyboard handlers set up');
   }
 });
 
@@ -1009,113 +1030,44 @@ try {
 // Initiates Spotify sign-in flow
 function login() {
   function getLoginURL(scopes) {
-    const clientId = '49ee4717a4fe432db9a5995860ad74e3';
-    
-    // Use different redirect URL based on environment
-    const redirectUri = window.location.hostname === 'localhost' ? 
-      `${window.location.origin}/callback` :
-      'https://perfectplaylist.ai/callback';
-    
-    console.log("Spotify redirect URI:", redirectUri);
-    
-    return `https://accounts.spotify.com/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes.join(' '))}&response_type=code`;
+    return `https://accounts.spotify.com/authorize?client_id=${spotifyConfig.clientId}&redirect_uri=${encodeURIComponent(spotifyConfig.redirectUri)}&scope=${encodeURIComponent(scopes.join(' '))}&response_type=code`;
   }
 
-  const scopes = [
+  const url = getLoginURL([
     'user-read-email',
     'playlist-read-private',
     'playlist-read-collaborative',
     'playlist-modify-public',
     'playlist-modify-private'
-  ];
-
-  const url = getLoginURL(scopes);
+  ]);
+  
+  // Right before opening the popup
   console.log("Opening Spotify login with URL:", url);
-  
-  // Open the popup with specific dimensions and position
-  const width = 450;
-  const height = 730;
-  const left = window.screen.width / 2 - width / 2;
-  const top = window.screen.height / 2 - height / 2;
-  
-  // Clear any stored caches or bad tokens
-  sessionStorage.removeItem('spotifyAccessToken');
-  localStorage.removeItem('refreshTokenExpiry');
-  
-  // Open popup with improved window features
-  const popup = window.open(
-    url,
-    'Spotify',
-    `width=${width},height=${height},left=${left},top=${top},toolbar=0,location=0,menubar=0,resizable=1,scrollbars=1`
-  );
-  
+  // Log the URL to ensure it contains the code
+  popup = window.open(url, 'Spotify', 'height=800,width=600');
   if (popup) {
-    console.log("Popup successfully opened");
-    
-    // Set a timer to check if popup is closed without completing auth
-    const popupCheckInterval = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(popupCheckInterval);
-        console.log("Auth popup was closed manually");
-        // Re-enable the login button
-        const connectBtn = document.getElementById('spotify-connect-btn');
-        if (connectBtn) {
-          connectBtn.disabled = false;
-          connectBtn.textContent = 'Connect Spotify';
-        }
-      }
-    }, 1000);
-    
-    // Disable login button while authenticating
-    const connectBtn = document.getElementById('spotify-connect-btn');
-    if (connectBtn) {
-      connectBtn.disabled = true;
-      connectBtn.textContent = 'Connecting...';
-    }
+    console.log('Popup successfully opened');
   } else {
-    console.error("Failed to open popup - likely blocked by browser");
-    alert("Popup blocked! Please allow popups for this site to connect with Spotify.");
+    console.log('Failed to open popup');
   }
 }
 
 // Export the login function to the global window object
 window.login = login;
 
-async function getUserData(accessToken) {
-  try {
-    console.log("Access Token before fetching user data:", accessToken);
-    const response = await fetch('https://api.spotify.com/v1/me', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
+function getUserData(accessToken) {
+  console.log('Access Token before fetching user data:', accessToken);
+  return fetch(
+    'https://api.spotify.com/v1/me',
+    { 'headers': { 'Authorization': `Bearer ${accessToken}` } }
+  )
+    .then(response => {
+      console.log("Response from Spotify user data:", response);
+      if (!response.ok) {
+        throw new Error(`Spotify API responded with ${response.status}`);
       }
+      return response;
     });
-
-    console.log("Response from Spotify user data:", response);
-    
-    if (response.status === 403) {
-      console.error("Spotify access denied (403) - token may be invalid");
-      // Force token refresh or re-authentication
-      sessionStorage.removeItem('spotifyAccessToken');
-      throw new Error("Spotify authorization required. Please try connecting again.");
-    }
-    
-    if (!response.ok) {
-      throw new Error(`Spotify API responded with ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching user data:", error);
-    // Show user-friendly error
-    const connectBtn = document.getElementById('spotify-connect-btn');
-    if (connectBtn) {
-      connectBtn.disabled = false;
-      connectBtn.textContent = 'Reconnect Spotify';
-      connectBtn.classList.add('error');
-    }
-    throw error;
-  }
 }
 
 let refreshToken;
@@ -1354,99 +1306,170 @@ function populateUI(userDoc) {
 
 // Chat GPT Reqeusts
 async function createPlaylistHandler(event) {
-  event.preventDefault();
-  console.log("Create playlist button clicked");
-  
-  const descriptionInput = document.getElementById('playlist-description-input');
-  if (!descriptionInput || !descriptionInput.value.trim()) {
-    console.error("No description provided");
-    alert("Please enter a description for your playlist");
-    return;
-  }
-  
-  const description = descriptionInput.value.trim();
-  console.log("Playlist description:", description);
-  
-  // Show loading indicator
-  showLoadingUI();
-  
   try {
-    // Get the Spotify access token from session storage
-    const accessToken = sessionStorage.getItem('spotifyAccessToken');
-    if (!accessToken) {
-      console.error("No access token found");
-      throw new Error("Please connect to Spotify first");
+    console.log("Begin create playlist handler");
+    event.preventDefault();
+    showLoadingUI();
+
+    const user = auth.currentUser; // Get the current user directly from Firebase Auth
+    if (!user) {
+      console.error("No user is currently signed in");
+      hideLoadingUI();
+      alert("No user is currently signed in. Please log in and try again.");
+      return;
     }
-    
-    // Retrieve the current user Firebase UID
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      console.error("No Firebase user found");
-      throw new Error("Authentication error. Please try logging in again.");
+
+    const firebaseUID = user.uid; // Get the UID from the user object
+
+    const userData = await getDoc(doc(db, 'users', firebaseUID));
+    if (!userData || !userData.data()) {
+      console.error("No user data found for firebaseUID:", firebaseUID);
+      hideLoadingUI();
+      alert("Unable to retrieve your user information. Please try again.");
+      return;
     }
-    
-    // Generate playlist via our assistant
-    const { playlistId, playlistName } = await generatePlaylistWithAssistant(description);
-    
-    if (!playlistId) {
-      throw new Error("Failed to create playlist. Please try again with a different description.");
+    const { id: userID, accessToken: currentAccessToken } = userData.data();
+
+    const playlistDescription = document.getElementById("playlist-description-input").value;
+    if (!playlistDescription) {
+      console.error("No playlist description input found");
+      hideLoadingUI();
+      alert("Please enter a description for your playlist.");
+      return;
     }
-    
-    console.log("Playlist created successfully:", playlistId);
-    
-    // Embed the playlist in the UI
-    await embedPlaylist(playlistId);
-    
-    // Enable buttons for interacting with the playlist
-    await enableButtons(accessToken, { id: playlistId, name: playlistName });
-    
-    // Hide loading indicator
-    hideLoadingUI();
-    
-    // Show the playlist section
-    document.getElementById('playlist-info').style.display = 'block';
-    
-    // Add a little animation to draw attention to the playlist
-    const playlistViewer = document.getElementById('playlist-viewer');
-    playlistViewer.classList.add('highlight');
-    setTimeout(() => {
-      playlistViewer.classList.remove('highlight');
-    }, 2000);
-    
-  } catch (error) {
-    console.error("Error creating playlist:", error);
-    
-    // Hide loading indicator
-    hideLoadingUI();
-    
-    // Show a user-friendly error message
-    let errorMessage = "Failed to create your playlist. ";
-    
-    if (error.message.includes("403")) {
-      errorMessage += "Spotify access denied. Please reconnect your Spotify account.";
-      // Reset the connection button to allow reconnection
-      const connectBtn = document.getElementById('spotify-connect-btn');
-      if (connectBtn) {
-        connectBtn.disabled = false;
-        connectBtn.textContent = 'Reconnect Spotify';
+
+    try {
+      const playlistData = await generatePlaylistWithAssistant(playlistDescription);
+      const songList = playlistData.songs;
+      const playlistTitle = playlistData.title;
+
+      console.log("Current Access Token for Spotify:", currentAccessToken);
+      console.log("User ID for Spotify:", userID);
+
+      const newPlaylist = await createPlaylist(currentAccessToken, userID, playlistTitle, playlistDescription, firebaseUID);
+      console.log("New playlist created:", newPlaylist);
+
+      if (newPlaylist.id) {
+        // Process songs in batches to avoid rate limiting
+        const batchSize = 20; // Process 20 songs at a time
+        const batchDelay = 3000; // 3 second delay between batches (increased from 2 seconds)
+        const allSongs = [...songList]; // Create a copy to work with
+        const allTrackUris = [];
+        
+        // Show progress information to user
+        const totalSongs = allSongs.length;
+        console.log(`Processing ${totalSongs} songs in batches of ${batchSize} to avoid Spotify rate limits`);
+        
+        // Function to process a batch of songs
+        const processBatch = async (startIdx) => {
+          // Ensure access token is refreshed before processing batch
+          // This helps prevent 401 errors for long-running operations
+          if (startIdx > 0 && startIdx % 80 === 0) {
+            console.log("Preemptively refreshing access token to avoid expiration...");
+            try {
+              const newToken = await refreshSpotifyToken(firebaseUID);
+              if (newToken) {
+                console.log("Access token refreshed successfully during batch processing.");
+                sessionStorage.setItem('spotifyAccessToken', newToken);
+                currentAccessToken = newToken;
+              }
+            } catch (refreshError) {
+              console.error("Failed to refresh token during batch processing:", refreshError);
+              // Continue with current token and hope for the best
+            }
+          }
+          
+          const endIdx = Math.min(startIdx + batchSize, allSongs.length);
+          const batchSongs = allSongs.slice(startIdx, endIdx);
+          
+          console.log(`Processing batch ${Math.ceil(startIdx/batchSize) + 1} of ${Math.ceil(allSongs.length/batchSize)}: songs ${startIdx+1}-${endIdx} of ${totalSongs}`);
+          
+          // Process songs in this batch
+          const batchTrackUris = (await Promise.all(
+            batchSongs.map(async song => {
+              try {
+                // Clean and validate search query
+                const artist = typeof song.artist === 'string' ? song.artist.trim() : '';
+                const songTitle = typeof song.song === 'string' ? song.song.trim() : '';
+                
+                if (!artist || !songTitle) {
+                  console.error(`Invalid song data - missing artist or song title:`, song);
+                  return null;
+                }
+                
+                // Limit search query length to avoid API errors
+                const searchQuery = `${artist} ${songTitle}`.substring(0, 100);
+                console.log(`Searching Spotify for: "${searchQuery}"`);
+                
+                const searchResult = await searchSpotify(currentAccessToken, searchQuery, firebaseUID);
+                if (searchResult?.uri) {
+                  console.log(`Success: ${artist} - ${songTitle}`);
+                  return searchResult.uri;
+                } else {
+                  console.log(`That song did not work: ${artist} - ${songTitle}`);
+                  return null;
+                }
+              } catch (error) {
+                console.error(`Error searching for song "${song.artist} - ${song.song}":`, error);
+                return null;
+              }
+            })
+          )).filter(Boolean);
+          
+          // Add these tracks to our accumulator array
+          allTrackUris.push(...batchTrackUris);
+          
+          // Update the playlist with this batch of songs
+          if (batchTrackUris.length > 0) {
+            try {
+              await addTracksToPlaylist(currentAccessToken, newPlaylist.id, batchTrackUris, firebaseUID);
+              console.log(`Added ${batchTrackUris.length} tracks from batch to playlist`);
+            } catch (error) {
+              console.error("Error adding tracks to playlist:", error);
+            }
+          }
+          
+          // If there are more songs to process, wait and then process the next batch
+          if (endIdx < allSongs.length) {
+            console.log(`Waiting ${batchDelay/1000} seconds before processing next batch to avoid rate limits...`);
+            await new Promise(resolve => setTimeout(resolve, batchDelay));
+            return processBatch(endIdx);
+          }
+          
+          return allTrackUris;
+        };
+        
+        // Start the batch processing from the first song
+        await processBatch(0);
+        
+        console.log(`Completed processing all ${totalSongs} songs. Successfully added ${allTrackUris.length} tracks to the playlist.`);
+        embedPlaylist(newPlaylist.id);
+        enableButtons(currentAccessToken, newPlaylist);
+        console.log("Playlist embedded");
+        hideLoadingUI();
+
+        // Take a screenshot after the playlist is created, with a delay
+        console.log("Scheduling screenshot in 3 seconds to capture the completed playlist");
+        if (APP_CONFIG.testing.enableScreenshots) {
+          setTimeout(() => {
+            takeAutomaticScreenshot();
+          }, 3000); // 3 second delay before taking screenshot
+        }
+      } else {
+        console.error("Failed to create a new playlist");
+        hideLoadingUI();
+        alert("Failed to create a new playlist. Please try again.");
       }
-    } else if (error.message.includes("401")) {
-      errorMessage += "Your Spotify session has expired. Please reconnect.";
-      // Reset the auth state to force relogin
-      signOut();
-    } else if (error.message.includes("No tracks were found")) {
-      errorMessage += "We couldn't find songs matching your description. Try being more specific or using different terms.";
-    } else if (error.message.includes("rate limit")) {
-      errorMessage += "Spotify is temporarily busy. Please wait a moment and try again.";
-    } else {
-      errorMessage += "Please try again with a different description.";
+    } catch (error) {
+      console.error("Playlist generation error:", error);
+      hideLoadingUI();
+      alert(error.message || "An error occurred while generating your playlist. Please try again.");
+      return;
     }
-    
-    // Display the error to the user
-    alert(errorMessage);
-    
-    // Log the error for debugging
-    console.error("Detailed error:", error);
+  } catch (error) {
+    console.error('Error in createPlaylistHandler: ', error);
+    hideLoadingUI();
+    alert("An error occurred while creating your playlist. Please try again.");
   }
 }
 
@@ -1454,221 +1477,174 @@ async function generatePlaylistWithAssistant(description) {
   console.log("Generating playlist with Firebase function for description:", description);
   
   try {
-    // Get the current user
+    // Extract Firebase user info for logging
     const user = auth.currentUser;
-    if (!user) {
-      console.error("No user is currently signed in");
-      throw new Error("Please log in and try again.");
+    const firebaseUID = user ? user.uid : null;
+    const userEmail = user ? user.email : 'anonymous';
+    console.log(`Request from user: ${userEmail} (${firebaseUID || 'anonymous'})`);
+    
+    // Check if the description is too long and truncate if necessary
+    const maxDescriptionLength = 10000;
+    const truncatedDescription = description.length > maxDescriptionLength 
+      ? `${description.substring(0, maxDescriptionLength)}... (truncated)` 
+      : description;
+    
+    if (description.length > maxDescriptionLength) {
+      console.log(`Description truncated from ${description.length} to ${maxDescriptionLength} characters`);
     }
     
-    // Log debugging info
-    console.log("Request from user:", user.email || user.uid);
+    // Special case handling for direct song lists
+    const isSongList = description.includes("Make a playlist with these songs:") || 
+                       description.split('\n').length > 10;
     
-    // Call Firebase function to generate the playlist
+    if (isSongList) {
+      // Process song list client-side
+      console.log("Detected a song list. Processing locally...");
+      
+      // Default title if none is specified
+      let playlistTitle = "Custom Song Collection";
+      const lines = description.split('\n');
+      
+      // Check for custom title patterns
+      const titlePatterns = [
+        /Make a playlist with these songs called ['"](.*?)['"][:]/i,
+        /Make a playlist with these songs called (.*?)[:]/i,
+        /called ['"](.*?)['"][:]/i,
+        /called ['"](.*?)['"]/i,
+        /called (.*?)[:]/i,
+        /Make a (.*?) playlist with these songs/i,
+        /Create a (.*?) playlist/i,
+        /Title: ['"](.*?)['"]/im,
+        /Title: (.*?)$/im,
+        /Playlist[: ]+(.*?)$/im
+      ];
+      
+      // Try to extract a custom title using the patterns
+      let foundCustomTitle = false;
+      for (const pattern of titlePatterns) {
+        const match = description.match(pattern);
+        if (match?.length > 1) {
+          // Clean up the title by removing any surrounding quotes
+          playlistTitle = match[1].trim().replace(/^['"]|['"]$/g, '');
+          console.log(`Found custom playlist title: "${playlistTitle}"`);
+          foundCustomTitle = true;
+          break;
+        }
+      }
+      
+      // Parse the song list directly
+      const songLines = description
+        .replace(/Make a playlist with these songs.*?:/i, "")
+        .replace(/Make a.*?playlist with these songs/i, "")
+        .replace(/Create a.*?playlist/i, "")
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0 && line.includes('-'));
+      
+      console.log(`Found ${songLines.length} song entries in the list`);
+
+      // Create a structured playlist with all songs from the list
+      const songs = songLines.map(line => {
+        const parts = line.split('-').map(part => part.trim());
+        return {
+          artist: parts[0] || "Unknown Artist",
+          song: parts[1] || parts[0] || "Unknown Song"
+        };
+      });
+      
+      console.log(`PLAYLIST RESULT - MANUAL PARSING: Title: "${playlistTitle}", Songs: ${songs.length}, Status: Success`);
+      
+      return {
+        title: playlistTitle,
+        songs: songs
+      };
+    }
+    
+    // For non-song-list descriptions, use the Firebase function
     console.log("Calling Firebase function to generate playlist...");
     
-    // Use the existing functions object to call the generatePlaylist function
-    const result = await functions.httpsCallable('generatePlaylist')({
-      description: description
-    });
-    
-    // Log the result
-    console.log("PLAYLIST RESULT - FROM FIREBASE:", 
-      `Title: "${result.data.title}", Songs: ${result.data.songs.length}, Status: ${result.data.status}`);
-    
-    if (result.data.status !== 'Success' || !result.data.songs || result.data.songs.length === 0) {
-      console.error("Failed to generate a playlist with songs");
-      throw new Error("We couldn't generate a playlist with those requirements. Please try a different description.");
-    }
-    
-    // Get access token from session storage
-    const accessToken = sessionStorage.getItem('spotifyAccessToken');
-    if (!accessToken) {
-      console.error("No Spotify access token found");
-      throw new Error("Spotify connection not found. Please reconnect to Spotify.");
-    }
-    
-    // Get the current user's Spotify ID
-    const userDataResponse = await fetch('https://api.spotify.com/v1/me', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
-    });
-    
-    if (!userDataResponse.ok) {
-      console.error("Failed to fetch user data from Spotify:", userDataResponse.status);
-      throw new Error("Failed to fetch your Spotify account information. Please reconnect to Spotify.");
-    }
-    
-    const userData = await userDataResponse.json();
-    const spotifyUserId = userData.id;
-    
-    // Create a new playlist on Spotify
-    console.log("Creating playlist on Spotify:", result.data.title);
-    const playlistResponse = await fetch(`https://api.spotify.com/v1/users/${spotifyUserId}/playlists`, {
+    const response = await fetch('https://us-central1-playlist-gpt.cloudfunctions.net/generatePlaylist', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        name: result.data.title,
-        description: description,
-        public: true
+      body: JSON.stringify({ 
+        description: truncatedDescription,
+        uid: firebaseUID
       })
     });
     
-    if (!playlistResponse.ok) {
-      console.error("Failed to create playlist on Spotify:", playlistResponse.status);
-      throw new Error("Failed to create a playlist on Spotify. Please try again.");
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Firebase function error:", errorData);
+      throw new Error(errorData.error || "Error generating playlist. Please try again.");
     }
     
-    const playlistData = await playlistResponse.json();
-    const playlistId = playlistData.id;
+    const playlistData = await response.json();
     
-    // Find and add the songs to the playlist
-    console.log("Finding songs on Spotify...");
-    const trackUris = [];
-    let addedCount = 0;
-    
-    for (const song of result.data.songs) {
-      try {
-        // Format the search query
-        const searchQuery = `${song.artist} ${song.song}`.trim();
-        console.log(`Searching for: ${searchQuery}`);
-        
-        // Search for the track
-        const searchResponse = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=1`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        });
-        
-        if (!searchResponse.ok) {
-          console.warn(`Failed to search for song "${searchQuery}":`, searchResponse.status);
-          continue;
-        }
-        
-        const searchData = await searchResponse.json();
-        if (searchData.tracks && searchData.tracks.items && searchData.tracks.items.length > 0) {
-          const trackUri = searchData.tracks.items[0].uri;
-          trackUris.push(trackUri);
-          addedCount++;
-          console.log(`Found track: ${song.artist} - ${song.song} (${trackUri})`);
-        } else {
-          console.warn(`Song not found on Spotify: ${song.artist} - ${song.song}`);
-        }
-      } catch (error) {
-        console.error(`Error searching for song "${song.artist} - ${song.song}":`, error);
-      }
+    // Validate the response data
+    if (!playlistData.title || !Array.isArray(playlistData.songs) || playlistData.songs.length === 0) {
+      console.error("Invalid playlist data received:", playlistData);
+      throw new Error("Received invalid playlist data. Please try again.");
     }
     
-    // Add the found tracks to the playlist
-    if (trackUris.length > 0) {
-      console.log(`Adding ${trackUris.length} tracks to playlist...`);
-      
-      // Add tracks in batches of 100 (Spotify API limit)
-      for (let i = 0; i < trackUris.length; i += 100) {
-        const batch = trackUris.slice(i, i + 100);
-        
-        const addTracksResponse = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            uris: batch
-          })
-        });
-        
-        if (!addTracksResponse.ok) {
-          console.error("Failed to add tracks to playlist:", addTracksResponse.status);
-        }
-      }
-      
-      console.log(`Successfully added ${trackUris.length} tracks to playlist`);
-    } else {
-      console.error("No tracks found on Spotify for this playlist");
-      throw new Error("We couldn't find any of the recommended songs on Spotify. Please try a different description.");
-    }
+    console.log(`PLAYLIST RESULT - FROM FIREBASE: Title: "${playlistData.title}", Songs: ${playlistData.songs.length}, Status: Success`);
     
-    // Return playlist ID and name
-    return {
-      playlistId,
-      playlistName: result.data.title
-    };
+    return playlistData;
     
   } catch (error) {
-    console.error("Error generating playlist:", error);
-    throw error;
+    console.error("Error generating playlist with Firebase function:", error);
+    throw new Error(error.message || "Failed to generate playlist. Please try again later.");
   }
 }
 
 // Move directly to the spotifyAPI function, removing the checkRunStatus function
-async function spotifyAPI(token, url, method, body, firebaseUID) {
-  // Default parameters
-  method = method || "GET";
-  body = body || {};
-
+async function spotifyAPI(token, url, method = "GET", body = {}, firebaseUID) {
   const options = {
     method,
     headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    }
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
   };
-
-  // Only add body for non-GET requests
-  if (method !== 'GET') {
+  if (method !== "GET") {
     options.body = JSON.stringify(body);
   }
 
+  let result;
   try {
-    const response = await fetch(url, options);
-    
-    // Handle token refresh for 401 errors
-    if (response.status === 401 && firebaseUID) {
-      console.log("Token expired, attempting to refresh...");
-      const newToken = await refreshSpotifyToken(firebaseUID);
-      
-      if (newToken) {
-        console.log("Token refreshed successfully, retrying request");
-        
-        // Update the authorization header with the new token
-        options.headers.Authorization = `Bearer ${newToken}`;
-        
-        // Retry the request with the new token
-        const retryResponse = await fetch(url, options);
-        
-        if (!retryResponse.ok) {
-          throw new Error(`Spotify API error after token refresh: ${retryResponse.status}`);
-        }
-        
-        if (method === 'DELETE' || method === 'PUT' || response.status === 204) {
-          return retryResponse;
-        }
-        
-        return await retryResponse.json();
-      }
-    }
-    
-    // For successful responses or non-401 errors
-    if (!response.ok) {
-      throw new Error(`Spotify API error: ${response.status}`);
-    }
-    
-    // For DELETE and some PUT responses, there's no JSON
-    if (method === 'DELETE' || method === 'PUT' || response.status === 204) {
-      return response;
-    }
-    
-    return await response.json();
+    result = await fetch(url, options);
   } catch (error) {
-    console.error(`SpotifyAPI error for ${url}:`, error);
-    throw error;
+    console.error(`Fetch failed: ${error}`);
+    throw new Error(error);
   }
+
+   // Check for Unauthorized (401) response
+   if (result.status === 401) {
+    console.log("Access token expired, attempting to refresh...");
+    const newToken = await refreshSpotifyToken(firebaseUID); // Refresh the token
+    if (newToken) {
+      console.log("Access token refreshed successfully.");
+      options.headers.Authorization = `Bearer ${newToken}`; // Update the Authorization header with the new token
+      result = await fetch(url, options); // Retry the request with the new token
+    }
+  }
+
+
+  if (!result.ok) {
+    throw new Error(`Spotify API request failed with status ${result.status}`);
+  }
+
+  let json;
+  try {
+    json = await result.json();
+  } catch (error) {
+    console.error(`Error parsing JSON: ${error}`);
+    throw new Error(error);
+  }
+  return json;
 }
+
 
 // And then call spotifyAPI like this
 async function createPlaylist(token, userID, playlistName, description, firebaseUID) {
@@ -1710,76 +1686,24 @@ async function createPlaylist(token, userID, playlistName, description, firebase
 
 
 async function searchSpotify(token, query, firebaseUID, type = "track") {
+  // Retry logic for handling rate limits
+  const maxRetries = 3;
+  const initialRetryDelay = 2000; // 2 seconds
+  
   const searchWithRetry = async (retryCount = 0) => {
     try {
-      // Add better query formatting for more accurate results
-      let formattedQuery = query;
-      // If the query contains artist - song format, optimize it
-      if (query.includes(' - ')) {
-        const [artist, title] = query.split(' - ').map(part => part.trim());
-        formattedQuery = `artist:${artist} track:${title}`;
-      }
-      
-      console.log(`Searching Spotify for: ${formattedQuery}`);
-      
-      const response = await spotifyAPI(token, `https://api.spotify.com/v1/search?q=${encodeURIComponent(formattedQuery)}&type=${type}&limit=10`, "GET", {}, firebaseUID);
-      
-      if (!response.ok) {
-        throw new Error(`Spotify search failed: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Check if we got any results
-      if (!data.tracks || !data.tracks.items || data.tracks.items.length === 0) {
-        console.log(`No results found for: ${query}`);
-        // Try a more general search by removing any special formatting
-        if (!query.includes(' - ')) {
-          return null; // We've already tried the general search
-        }
-        
-        // Retry with a more general search
-        const simpleQuery = query.replace(' - ', ' ');
-        console.log(`Retrying with simpler query: ${simpleQuery}`);
-        const simpleResponse = await spotifyAPI(token, `https://api.spotify.com/v1/search?q=${encodeURIComponent(simpleQuery)}&type=${type}&limit=10`, "GET", {}, firebaseUID);
-        
-        if (!simpleResponse.ok) {
-          throw new Error(`Spotify simple search failed: ${simpleResponse.status}`);
-        }
-        
-        const simpleData = await simpleResponse.json();
-        if (!simpleData.tracks || !simpleData.tracks.items || simpleData.tracks.items.length === 0) {
-          return null; // Still no results
-        }
-        
-        return simpleData.tracks.items[0];
-      }
-      
-      return data.tracks.items[0];
+      const data = await spotifyAPI(token, `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=${type}&limit=1`, 'GET', {}, firebaseUID);
+      return data[`${type}s`].items.length > 0 ? data[`${type}s`].items[0] : null;
     } catch (error) {
-      console.error(`Error searching Spotify (attempt ${retryCount + 1}):`, error);
-      
-      // Handle token expiration
-      if (error.message.includes('401') && retryCount < 2) {
-        console.log("Token expired during search, trying to refresh...");
-        try {
-          const newToken = await refreshSpotifyToken(firebaseUID);
-          if (newToken) {
-            console.log("Token refreshed, retrying search...");
-            token = newToken;
-            return searchWithRetry(retryCount + 1);
-          }
-        } catch (refreshError) {
-          console.error("Failed to refresh token during search:", refreshError);
-        }
-      }
-      
-      if (retryCount < 2) {
-        console.log(`Retrying search (attempt ${retryCount + 2})...`);
+      // If we hit rate limit and have retries left
+      if (error.message.includes('429') && retryCount < maxRetries) {
+        const retryDelay = initialRetryDelay * (2 ** retryCount); // Exponential backoff using ** operator
+        console.log(`Rate limit hit while searching. Retrying in ${retryDelay/1000} seconds (attempt ${retryCount + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
         return searchWithRetry(retryCount + 1);
       }
-      
-      return null;
+      console.error(`Search failed for "${query}": ${error.message}`);
+      return null; // Return null for failed searches rather than crashing
     }
   };
   
@@ -1787,80 +1711,92 @@ async function searchSpotify(token, query, firebaseUID, type = "track") {
 }
 
 async function addTracksToPlaylist(token, playlistId, trackUris, firebaseUID) {
-  if (!trackUris || trackUris.length === 0) {
-    console.error("No tracks to add to playlist");
-    throw new Error("No tracks were found to add to playlist");
-  }
+  // Handle large playlists by processing in batches of 100 (Spotify's maximum)
+  const maxTracksPerRequest = 100;
+  const maxRetries = 5; // Increased from 3
+  const initialRetryDelay = 3000; // 3 seconds
   
-  console.log(`Adding ${trackUris.length} tracks to playlist ${playlistId}`);
+  console.log(`Adding ${trackUris.length} tracks to playlist in batches of ${maxTracksPerRequest}`);
   
-  // First check if we have any valid tracks
-  const validTrackUris = trackUris.filter(uri => uri && typeof uri === 'string');
-  
-  if (validTrackUris.length === 0) {
-    console.error("All track URIs were invalid");
-    throw new Error("All tracks failed to be found on Spotify");
-  }
-  
-  // Add tracks in batches of 100 (Spotify API limit)
-  const batchSize = 100;
-  const batches = [];
-  
-  for (let i = 0; i < validTrackUris.length; i += batchSize) {
-    batches.push(validTrackUris.slice(i, i + batchSize));
-  }
-  
-  let retryCount = 0;
-  const maxRetries = 3;
-  
-  for (const batch of batches) {
-    try {
-      const response = await spotifyAPI(token, `https://api.spotify.com/v1/playlists/${playlistId}/tracks`, "POST", {
-        uris: batch
-      }, firebaseUID);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to add tracks to playlist: ${response.status}`);
-      }
-      
-      console.log(`Successfully added ${batch.length} tracks to playlist`);
-    } catch (error) {
-      console.error(`Error adding tracks batch to playlist:`, error);
-      
-      // If we failed due to token, try to refresh and retry
-      if (error.message.includes('401') && retryCount < maxRetries) {
-        console.log("Token expired during add tracks, trying to refresh...");
-        retryCount++;
-        try {
-          const newToken = await refreshSpotifyToken(firebaseUID);
-          if (newToken) {
-            console.log("Token refreshed, retrying add tracks...");
-            token = newToken;
-            // Retry this batch
-            const retryResponse = await spotifyAPI(token, `https://api.spotify.com/v1/playlists/${playlistId}/tracks`, "POST", {
-              uris: batch
-            }, firebaseUID);
-            
-            if (!retryResponse.ok) {
-              throw new Error(`Failed to add tracks after token refresh: ${retryResponse.status}`);
-            }
-            console.log(`Successfully added ${batch.length} tracks after token refresh`);
-          }
-        } catch (refreshError) {
-          console.error("Failed to refresh token during add tracks:", refreshError);
-          throw new Error("Failed to add tracks after token refresh attempt");
+  // Process tracks in batches to avoid hitting Spotify's limits
+  for (let i = 0; i < trackUris.length; i += maxTracksPerRequest) {
+    const batch = trackUris.slice(i, Math.min(i + maxTracksPerRequest, trackUris.length));
+    console.log(`Processing batch ${Math.ceil((i+1)/maxTracksPerRequest)} of ${Math.ceil(trackUris.length/maxTracksPerRequest)}: ${i+1}-${Math.min(i+maxTracksPerRequest, trackUris.length)} of ${trackUris.length} tracks`);
+    
+    // Preemptively refresh token if processing a large playlist
+    if (i > 0 && i % 300 === 0) {
+      console.log("Preemptively refreshing access token for large playlist...");
+      try {
+        const newToken = await refreshSpotifyToken(firebaseUID);
+        if (newToken) {
+          console.log("Token refreshed during batch processing");
+          token = newToken; // Use the new token for subsequent requests
+          sessionStorage.setItem('spotifyAccessToken', newToken);
         }
-      } else {
-        // For non-token related errors or if we've exceeded retries
-        throw error;
+      } catch (refreshError) {
+        console.error("Failed to refresh token during batch processing:", refreshError);
+        // Continue with current token
       }
+    }
+    
+    // Try to add this batch with retry logic
+    let success = false;
+    let retryCount = 0;
+    
+    while (!success && retryCount < maxRetries) {
+      try {
+        await spotifyAPI(token, `https://api.spotify.com/v1/playlists/${playlistId}/tracks`, 'POST', { uris: batch }, firebaseUID);
+        success = true;
+        console.log(`Successfully added batch ${Math.ceil((i+1)/maxTracksPerRequest)} (${batch.length} tracks)`);
+        
+        // Add a small delay between batches to avoid rate limiting
+        if (i + maxTracksPerRequest < trackUris.length) {
+          const delay = 1000; // 1 second between batches
+          console.log(`Waiting ${delay/1000} seconds before processing next batch...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    } catch (error) {
+        // If token expired, try to refresh it
+        if (error.message.includes('401') || error.message.includes('expired')) {
+          console.log("Token expired during track addition. Refreshing...");
+          try {
+            const newToken = await refreshSpotifyToken(firebaseUID);
+            if (newToken) {
+              console.log("Token refreshed successfully");
+              token = newToken; // Update the token
+              sessionStorage.setItem('spotifyAccessToken', newToken);
+              // Don't increment retry count for token refreshes
+              continue;
+            }
+          } catch (refreshError) {
+            console.error("Failed to refresh token:", refreshError);
+          }
+        }
+        
+        // If we hit rate limit, use exponential backoff
+        if (error.message.includes('429')) {
+          retryCount++;
+          const retryDelay = initialRetryDelay * (2 ** retryCount); // Exponential backoff using ** operator
+          console.log(`Rate limit hit. Retrying in ${retryDelay/1000} seconds (attempt ${retryCount}/${maxRetries})...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          continue;
+        }
+        
+        // For other errors, retry with exponential backoff
+        retryCount++;
+        const retryDelay = initialRetryDelay * (2 ** retryCount); // Exponential backoff using ** operator
+        console.log(`Error adding tracks: ${error.message}. Retrying in ${retryDelay/1000} seconds (attempt ${retryCount}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    }
+    
+    // If we couldn't add this batch after all retries, throw an error
+    if (!success) {
+      throw new Error(`Failed to add batch of tracks after ${maxRetries} attempts`);
     }
   }
   
-  return {
-    playlistId,
-    addedTracks: validTrackUris.length
-  };
+  return true;
 }
 
 // Embed the playlist so it's visible
@@ -2584,6 +2520,7 @@ function unfollowPlaylist(playlistId) {
     const LOGO_STYLE_KEY = 'perfectPlaylist_logoStyle';
     const FONT_STYLE_KEY = 'perfectPlaylist_fontStyle';
     const INPUT_FONT_KEY = 'perfectPlaylist_inputFont';
+    const SUBTITLE_FONT_KEY = 'subtitleFont';
     const settingsButton = document.getElementById('settings-button');
     const settingsPanel = document.getElementById('settings-panel');
     
@@ -2602,6 +2539,7 @@ function unfollowPlaylist(playlistId) {
     const logoOptions = document.querySelectorAll('input[name="logo-option"]');
     const fontOptions = document.querySelectorAll('input[name="font-option"]');
     const inputFontOptions = document.querySelectorAll('input[name="input-font-option"]');
+    const subtitleFontOptions = document.querySelectorAll('input[name="subtitle-font-option"]');
     
     // Initialize background toggle with the current preference
     const currentBackgroundPreference = localStorage.getItem(BACKGROUND_PREF_KEY) || 'image';
@@ -2639,11 +2577,25 @@ function unfollowPlaylist(playlistId) {
       }
     });
     
+    // Initialize subtitle font radio with the current preference or default
+    const currentSubtitleFont = localStorage.getItem(SUBTITLE_FONT_KEY) || 'default';
+    subtitleFontOptions.forEach(option => {
+      if (option.value === currentSubtitleFont) {
+        option.checked = true;
+      }
+    });
+    
     // Apply the current font style on initialization
     applyFontStyle(currentFontStyle);
     
     // Apply the current input font style on initialization
     applyInputFontStyle(currentInputFont);
+    
+    // Apply the current subtitle font style on initialization
+    const subtitle = document.querySelector('p.text-xl');
+    if (subtitle && currentSubtitleFont !== 'default') {
+      subtitle.classList.add(`subtitle-font-${currentSubtitleFont}`);
+    }
     
     // Toggle settings panel visibility
     settingsButton.addEventListener('click', (e) => {
@@ -2651,9 +2603,21 @@ function unfollowPlaylist(playlistId) {
       // Stop event propagation to prevent document click from closing the panel immediately
       e.stopPropagation();
       
-      settingsButton.classList.toggle('active');
-      settingsPanel.classList.toggle('visible');
+      // Check current state
+      const isPanelVisible = settingsPanel.classList.contains('visible');
       
+      // Force the opposite state rather than toggling
+      if (isPanelVisible) {
+        settingsButton.classList.remove('active');
+        settingsPanel.classList.remove('visible');
+        console.log('Settings panel closed');
+      } else {
+        settingsButton.classList.add('active');
+        settingsPanel.classList.add('visible');
+        console.log('Settings panel opened');
+      }
+      
+      // Log the new state for debugging
       console.log('Settings panel visibility:', { 
         buttonActive: settingsButton.classList.contains('active'),
         panelVisible: settingsPanel.classList.contains('visible')
@@ -2679,208 +2643,89 @@ function unfollowPlaylist(playlistId) {
       e.stopPropagation();
     });
     
-    // Handle background type toggle
-    backgroundTypeToggle.addEventListener('change', (e) => {
-      console.log('Background type toggle changed:', e.target.checked);
-      const newPreference = e.target.checked ? 'image' : 'video';
-      localStorage.setItem(BACKGROUND_PREF_KEY, newPreference);
-      
-      // Clear any existing interval
-      if (window.currentBackgroundInterval) {
-        clearInterval(window.currentBackgroundInterval);
-        window.currentBackgroundInterval = null;
-      }
-      
-      // Apply the new background
-      setRandomBackground().catch(err => {
-        console.error("Error changing background:", err);
-      });
-    });
-    
-    // Handle branding image selection
-    brandingOptions.forEach(option => {
-      option.addEventListener('change', (e) => {
-        console.log('Branding option changed:', e.target.value);
-        if (e.target.checked) {
-          const selectedImage = e.target.value;
-          localStorage.setItem(BRANDING_IMAGE_KEY, selectedImage);
-          
-          // Update the image on the page
-          const brandingImage = document.querySelector('img[alt="Perfect Playlist"]');
-          if (brandingImage) {
-            console.log('Updating branding image to:', selectedImage);
-            brandingImage.src = `branding/${selectedImage}`;
-          } else {
-            console.error('Branding image element not found');
-          }
-        }
-      });
-    });
-    
-    // Handle logo style selection
-    logoOptions.forEach(option => {
-      option.addEventListener('change', (e) => {
-        console.log('Logo option changed:', e.target.value);
-        if (e.target.checked) {
-          const selectedLogo = e.target.value;
-          localStorage.setItem(LOGO_STYLE_KEY, selectedLogo);
-          
-          // Update the logo on the page
-          const logoImage = document.querySelector('.logo img');
-          if (logoImage) {
-            console.log('Updating logo image to:', selectedLogo);
-            // If it's an SVG, keep the path as is, otherwise prepend branding/
-            const logoPath = selectedLogo === 'logo.svg' ? selectedLogo : `branding/${selectedLogo}`;
-            logoImage.src = logoPath;
-          } else {
-            console.error('Logo image element not found');
-          }
-        }
-      });
-    });
-    
-    // Handle font style selection
-    fontOptions.forEach(option => {
-      option.addEventListener('change', (e) => {
-        console.log('Font option changed:', e.target.value);
-        if (e.target.checked) {
-          const selectedFont = e.target.value;
-          localStorage.setItem(FONT_STYLE_KEY, selectedFont);
-          
-          // Apply the selected font style
-          applyFontStyle(selectedFont);
-        }
-      });
-    });
-    
-    // Handle input font style selection
-    inputFontOptions.forEach(option => {
-      option.addEventListener('change', (e) => {
-        console.log('Input font option changed:', e.target.value);
-        if (e.target.checked) {
-          const selectedFont = e.target.value;
-          localStorage.setItem(INPUT_FONT_KEY, selectedFont);
-          
-          // Apply the selected input font style
-          applyInputFontStyle(selectedFont);
-        }
-      });
-    });
-    
-    // Function to apply font style to the app
-    function applyFontStyle(fontStyle) {
-      console.log('Applying font style:', fontStyle);
-      
-      // Reset body font to default
-      document.body.classList.remove(
-        'font-outfit', 
-        'font-lexend', 
-        'font-quicksand', 
-        'font-poppins',
-        'font-playfair',
-        'font-dm-serif',
-        'font-cormorant',
-        'font-abril',
-        'font-rozha'
-      );
-      
-      // Apply Abril font to subtitle regardless of what was selected
-      const subtitle = document.querySelector('p.text-xl');
-      if (subtitle) {
-        console.log('Setting subtitle font to Abril');
-        subtitle.style.fontFamily = 'Abril Fatface, cursive';
-      }
-    }
-    
-    // Function to apply input font style to textarea and buttons
-    function applyInputFontStyle(inputFont) {
-      console.log('Applying input font style: default (overriding selection)');
-      
-      // Reset all input elements to default font
-      document.querySelectorAll('.playlist-textarea, .btn').forEach(el => {
-        el.classList.remove(
-          'input-font-outfit', 
-          'input-font-lexend', 
-          'input-font-quicksand', 
-          'input-font-poppins'
-        );
+    // Handle accordion toggles in settings panel
+    document.querySelectorAll('.accordion-button').forEach(button => {
+      button.addEventListener('click', function(e) {
+        // Stop event propagation to prevent panel from closing
+        e.stopPropagation();
         
-        // Add the default font class
-        el.classList.add('input-font-default');
+        // Get current state
+        const isExpanded = this.classList.contains('expanded');
         
-        // Set explicit font-family to override any inline styles
-        el.style.fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+        // Get the related content section
+        const sectionId = this.getAttribute('data-section');
+        const contentSection = document.getElementById(`${sectionId}-section`);
+        
+        if (!contentSection) {
+          console.error(`Content section not found for: ${sectionId}`);
+          return;
+        }
+        
+        // Force the opposite state rather than toggling
+        if (isExpanded) {
+          // Collapse this accordion
+          this.classList.remove('expanded');
+          this.classList.add('collapsed');
+          contentSection.classList.remove('show');
+          
+          // Update the icon
+          const icon = this.querySelector('.accordion-icon');
+          if (icon) {
+            icon.textContent = '+';
+          }
+          
+          console.log(`Accordion ${sectionId} collapsed`);
+        } else {
+          // Expand this accordion
+          this.classList.add('expanded');
+          this.classList.remove('collapsed');
+          contentSection.classList.add('show');
+          
+          // Update the icon
+          const icon = this.querySelector('.accordion-icon');
+          if (icon) {
+            icon.textContent = '-';
+          }
+          
+          console.log(`Accordion ${sectionId} expanded`);
+        }
+        
+        // Log the new state for debugging
+        console.log('Accordion state:', { 
+          section: sectionId,
+          isExpanded: this.classList.contains('expanded'),
+          isVisible: contentSection.classList.contains('show')
+        });
       });
-      
-      // Also update the textarea specifically
-      const textarea = document.querySelector('.playlist-textarea');
-      if (textarea) {
-        textarea.style.fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
-      }
-    }
+    });
     
-    // Helper function to get CSS font-family value
-    function getFontFamilyValue(fontStyle) {
-      switch (fontStyle) {
-        case 'outfit':
-          return 'Outfit, sans-serif';
-        case 'lexend':
-          return 'Lexend, sans-serif';
-        case 'quicksand':
-          return 'Quicksand, sans-serif';
-        case 'poppins':
-          return 'Poppins, sans-serif';
-        case 'playfair':
-          return 'Playfair Display, serif';
-        case 'dm-serif':
-          return 'DM Serif Display, serif';
-        case 'cormorant':
-          return 'Cormorant, serif';
-        case 'abril':
-          return 'Abril Fatface, cursive';
-        case 'rozha':
-          return 'Rozha One, serif';
-        default:
-          return "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
-      }
-    }
-    
-    // Helper function to get input font-family value (only sans-serif fonts)
-    function getInputFontFamilyValue(fontStyle) {
-      switch (fontStyle) {
-        case 'outfit':
-          return 'Outfit, sans-serif';
-        case 'lexend':
-          return 'Lexend, sans-serif';
-        case 'quicksand':
-          return 'Quicksand, sans-serif';
-        case 'poppins':
-          return 'Poppins, sans-serif';
-        default:
-          return "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
-      }
-    }
-    
-    // Set initial branding image
-    const brandingImage = document.querySelector('img[alt="Perfect Playlist"]');
-    if (brandingImage) {
-      console.log('Setting initial branding image to:', currentBrandingImage);
-      brandingImage.src = `branding/${currentBrandingImage}`;
-    } else {
-      console.error('Branding image element not found for initial setup');
-    }
-    
-    // Set initial logo style
-    const logoImage = document.querySelector('.logo img');
-    if (logoImage) {
-      console.log('Setting initial logo style to:', currentLogoStyle);
-      // If it's an SVG, keep the path as is, otherwise prepend branding/
-      const logoPath = currentLogoStyle === 'logo.svg' ? currentLogoStyle : `branding/${currentLogoStyle}`;
-      logoImage.src = logoPath;
-    } else {
-      console.error('Logo image element not found for initial setup');
-    }
-    
-    console.log('Settings panel initialization complete');
-  }, 300); // Give more time to ensure DOM is ready
-})();
+    // Handle subtitle font changes
+    subtitleFontOptions.forEach(radioBtn => {
+      radioBtn.addEventListener('change', () => {
+        const selectedFont = radioBtn.value;
+        const subtitle = document.querySelector('p.text-xl');
+        
+        if (subtitle) {
+          // Remove all previous font classes
+          subtitle.classList.remove(
+            'subtitle-font-default', 'subtitle-font-outfit', 'subtitle-font-lexend', 
+            'subtitle-font-quicksand', 'subtitle-font-poppins', 'subtitle-font-playfair', 
+            'subtitle-font-dm-serif', 'subtitle-font-cormorant', 'subtitle-font-abril', 
+            'subtitle-font-rozha', 'subtitle-font-merriweather', 'subtitle-font-lora',
+            'subtitle-font-crimson', 'subtitle-font-fraunces', 'subtitle-font-spectral'
+          );
+          
+          // Add the selected font class
+          subtitle.classList.add(`subtitle-font-${selectedFont}`);
+          
+          // Store the setting
+          localStorage.setItem('subtitleFont', selectedFont);
+          
+          console.log(`Subtitle font changed to: ${selectedFont}`);
+        } else {
+          console.error('Subtitle element not found');
+        }
+      });
+    });
+  }, 300); // Close the setTimeout callback with proper syntax
+})(); // Close the IIFE
