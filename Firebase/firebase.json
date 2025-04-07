@@ -21,58 +21,34 @@
       ]
     }
   ],
-  "hosting": [
-    {
-      "target": "playlist-gpt",
-      "public": "public",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "headers": [
-        {
-          "source": "**",
-          "headers": [
-            {
-              "key": "Access-Control-Allow-Origin",
-              "value": "*"
-            }
-          ]
-        }
-      ],
-      "rewrites": [
-        {
-          "source": "/callback",
-          "destination": "/callback.html"
-        }
-      ]
-    },
-    {
-      "target": "perfectplaylist",
-      "public": "public",
-      "ignore": [
-        "firebase.json",
-        "**/.*",
-        "**/node_modules/**"
-      ],
-      "headers": [
-        {
-          "source": "**",
-          "headers": [
-            {
-              "key": "Access-Control-Allow-Origin",
-              "value": "*"
-            }
-          ]
-        }
-      ],
-      "rewrites": [
-        {
-          "source": "/callback",
-          "destination": "/callback.html"
-        }
-      ]
-    }
-  ]
+  "hosting": {
+    "target": "main",
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          {
+            "key": "Access-Control-Allow-Origin",
+            "value": "*"
+          }
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/callback",
+        "destination": "/callback.html"
+      }
+    ]
+  },
+  "storage": {
+    "rules": "storage.rules",
+    "lifecycle": "storage.lifecycle.json"
+  }
 }
